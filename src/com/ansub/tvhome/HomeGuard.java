@@ -37,19 +37,20 @@ public class HomeGuard extends AccessibilityService {
         findOtherHomes();
     }
 
-    // Home, Apps, Settings, the person and TV buttons and Guide, before Android hands them on. On Google TV these
-    // go to Google TV's home screen (Settings opens its side panel), so with it off they'd do nothing.
-    // Home and Apps open this home screen (Apps with its app list), Settings opens Control Center, the
-    // person button the TV's account page, Guide the TV guide. Everything else passes through untouched.
+    // Home, Apps, Settings, Guide and the person and input buttons, before Android hands them on. On
+    // Google TV these go to Google TV's home screen (Settings opens its side panel), so with it off
+    // they'd do nothing. Home and Apps open this home screen (Apps with its app list), Settings opens
+    // Control Center, the person button the TV's account page, Guide and input Live TV (see below).
+    // Everything else passes through untouched.
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
         if (code == KeyEvent.KEYCODE_TV_INPUT) return tvButton(e);
+        if (code == KeyEvent.KEYCODE_GUIDE) return guideButton(e);
         // The gear button sends NOTIFICATION on some remotes (Peaq), SETTINGS on others.
         boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
         boolean profile = code == KeyEvent.KEYCODE_PROFILE_SWITCH;
-        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS && !settings && !profile
-                && code != KeyEvent.KEYCODE_GUIDE) return false;
+        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS && !settings && !profile) return false;
         if (e.getAction() != KeyEvent.ACTION_UP || e.isCanceled()) return true;
         handler.removeCallbacks(bringHome);
         Intent i;
@@ -59,11 +60,6 @@ public class HomeGuard extends AccessibilityService {
             // "Account & sign-in", where Google TV's profiles live.
             i = new Intent(Settings.ACTION_SYNC_SETTINGS);
             if (i.resolveActivity(getPackageManager()) == null) i = new Intent(Settings.ACTION_SETTINGS);
-        } else if (code == KeyEvent.KEYCODE_GUIDE) {
-            // MediaTek's Live TV has its guide as an activity of its own; else just open Live TV.
-            i = new Intent(GUIDE).setPackage(MEDIATEK_TV);
-            if (i.resolveActivity(getPackageManager()) == null) i = MainActivity.liveTvIntent(this);
-            if (i == null) return true;
         } else {
             i = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
             if (code == KeyEvent.KEYCODE_ALL_APPS) i.putExtra("show", "apps");
@@ -72,8 +68,19 @@ public class HomeGuard extends AccessibilityService {
         return true;
     }
 
-    private static final String MEDIATEK_TV = "com.mediatek.wwtv.tvcenter";
-    private static final String GUIDE = "com.mediatek.wwtv.tvcenter.saepg.activity";
+    // The guide button (a TV on the Peaq remote): opens Live TV. In Live TV it's passed on, so Live TV
+    // can show its own guide; MediaTek doesn't let other apps open that guide themselves.
+    private boolean guideButton(KeyEvent e) {
+        Intent live = MainActivity.liveTvIntent(this);
+        if (live == null || (live.getComponent() != null && front.equals(live.getComponent().getPackageName())))
+            return false;
+        if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled()) {
+            handler.removeCallbacks(bringHome);
+            start(live);
+        }
+        return true;
+    }
+
     private static final String VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS"; // the TV's input picker
     private boolean inputsShown; // the TV button was held long enough to open the input picker
     private String front = "";   // the app in front, from window changes
