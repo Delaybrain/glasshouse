@@ -24,6 +24,15 @@
         <package android:name="com.tcl.settings" />
         <!-- Google TV's HDMI input player, so HDMI tiles can see when the TV sends HDMI to it. -->
         <package android:name="com.google.android.tv.inputplayer" />
+        <!-- The TV's other home screens, which HomeGuard steps in front of. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <!-- Live TV apps the channel and number buttons open. -->
+        <package android:name="com.mediatek.wwtv.tvcenter" />
+        <package android:name="com.android.tv" />
+        <package android:name="com.droidlogic.android.tv" />
     </queries>
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
@@ -43,5 +52,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Off until turned on (homeguard.sh): brings this home screen up over Google TV's. -->
+        <service android:name=".HomeGuard"
+            android:label="Home: Home-Taste"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

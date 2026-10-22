@@ -1080,17 +1080,7 @@ public class MainActivity extends Activity {
     // or takes the place of the app at replaceIndex (-1 to add).
     private void showAddMenu(final int replaceIndex) {
         final PackageManager pm = getPackageManager();
-        TreeMap<String, String> byLabel = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        for (String category : new String[] {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
-            Intent q = new Intent(Intent.ACTION_MAIN).addCategory(category);
-            for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
-                String p = ri.activityInfo.packageName;
-                if (rowApps.contains(p) || byLabel.containsValue(p) || p.equals(getPackageName())
-                        || (NOT_APPS.contains(p) && !p.equals(PLAY_STORE))) continue;
-                String label = labelOf(p);
-                if (!byLabel.containsKey(label)) byLabel.put(label, p);
-            }
-        }
+        TreeMap<String, String> byLabel = launchableApps(true);
         if (byLabel.isEmpty()) {
             panel(Strings.t("Every app is already here"), Collections.singletonList("OK"), which -> {});
             return;
@@ -1106,6 +1096,71 @@ public class MainActivity extends Activity {
             focusedKey = pkgs.get(which);
             buildTiles();
         });
+    }
+
+    // Every app that can be opened, by name. skipRow leaves out the apps already on the home screen.
+    private TreeMap<String, String> launchableApps(boolean skipRow) {
+        PackageManager pm = getPackageManager();
+        TreeMap<String, String> byLabel = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (String category : new String[] {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            Intent q = new Intent(Intent.ACTION_MAIN).addCategory(category);
+            for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
+                String p = ri.activityInfo.packageName;
+                if ((skipRow && rowApps.contains(p)) || byLabel.containsValue(p) || p.equals(getPackageName())
+                        || (NOT_APPS.contains(p) && !p.equals(PLAY_STORE))) continue;
+                String label = labelOf(p);
+                if (!byLabel.containsKey(label)) byLabel.put(label, p);
+            }
+        }
+        return byLabel;
+    }
+
+    // The remote's Apps button: every app, A to Z, OK opens it.
+    private void showAllApps() {
+        final PackageManager pm = getPackageManager();
+        TreeMap<String, String> byLabel = launchableApps(false);
+        final List<String> pkgs = new ArrayList<>(byLabel.values());
+        panel(Strings.t("All apps"), new ArrayList<>(byLabel.keySet()),
+                pos -> fit(pm.getApplicationIcon(pkgs.get(pos)), px(48), px(48)), px(48), -1, null,
+                which -> open(pkgs.get(which)));
+    }
+
+    // Live TV for the channel, number and guide buttons: the stock app, Droidlogic's, MediaTek's (most
+    // Google TVs of this kind, Peaq too), then TCL's. The first one this TV has opens.
+    private static final String[] LIVE_TV_APPS = {"com.android.tv", "com.droidlogic.android.tv",
+            "com.mediatek.wwtv.tvcenter", "com.tcl.tv"};
+
+    private boolean openLiveTv() {
+        PackageManager pm = getPackageManager();
+        for (String p : LIVE_TV_APPS) {
+            Intent i = launchIntent(pm, p);
+            if (i == null) continue;
+            try {
+                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return true;
+            } catch (Exception ignored) {}
+        }
+        return false;
+    }
+
+    // Remote buttons that reach the home screen because no app is in front. The rest (Home, volume,
+    // power, the app buttons) Android handles before they get here.
+    @Override
+    public boolean onKeyDown(int code, KeyEvent ev) {
+        if (movingKey != null) return super.onKeyDown(code, ev);
+        if (code == KeyEvent.KEYCODE_ALL_APPS) {
+            if (ev.getRepeatCount() == 0) showAllApps();
+            return true;
+        }
+        boolean live = (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9)
+                || code == KeyEvent.KEYCODE_CHANNEL_UP || code == KeyEvent.KEYCODE_CHANNEL_DOWN
+                || code == KeyEvent.KEYCODE_GUIDE || code == KeyEvent.KEYCODE_TV
+                || code == KeyEvent.KEYCODE_LAST_CHANNEL;
+        if (live) {
+            if (ev.getRepeatCount() == 0) openLiveTv();
+            return true;
+        }
+        return super.onKeyDown(code, ev);
     }
 
     private static String[] translated(String[] en) {
