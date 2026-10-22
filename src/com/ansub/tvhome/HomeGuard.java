@@ -36,22 +36,37 @@ public class HomeGuard extends AccessibilityService {
         findOtherHomes();
     }
 
-    // Home and Apps, before Android hands them on. On Google TV both go to Google TV's home screen
-    // (the Apps button through its GlobalKeyListener), so this home screen would never see them.
+    // Home, Apps, Settings and Guide, before Android hands them on. On Google TV these go to Google TV's
+    // home screen (Settings opens its side panel), so with it off they'd do nothing. Home and Apps open
+    // this home screen (Apps with its app list), Settings opens Control Center, Guide the TV guide.
     // Everything else passes through untouched.
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
-        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS) return false;
-        if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled()) {
-            handler.removeCallbacks(bringHome);
-            Intent i = new Intent(this, MainActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0)
+            android.util.Log.i("HomeGuard", "key " + KeyEvent.keyCodeToString(code)); // which button is which
+        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS
+                && code != KeyEvent.KEYCODE_SETTINGS && code != KeyEvent.KEYCODE_GUIDE) return false;
+        if (e.getAction() != KeyEvent.ACTION_UP || e.isCanceled()) return true;
+        handler.removeCallbacks(bringHome);
+        Intent i;
+        if (code == KeyEvent.KEYCODE_SETTINGS) {
+            i = new Intent(this, ControlCenter.class);
+        } else if (code == KeyEvent.KEYCODE_GUIDE) {
+            // MediaTek's Live TV has its guide as an activity of its own; else just open Live TV.
+            i = new Intent(GUIDE).setPackage(MEDIATEK_TV);
+            if (i.resolveActivity(getPackageManager()) == null) i = MainActivity.liveTvIntent(this);
+            if (i == null) return true;
+        } else {
+            i = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
             if (code == KeyEvent.KEYCODE_ALL_APPS) i.putExtra("show", "apps");
-            try { startActivity(i); } catch (Exception ignored) {}
         }
+        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
         return true;
     }
+
+    private static final String MEDIATEK_TV = "com.mediatek.wwtv.tvcenter";
+    private static final String GUIDE = "com.mediatek.wwtv.tvcenter.saepg.activity";
 
     // Every Home page on the TV but this one, by package/class. Settings and setup apps answer Home too,
     // as a fallback the TV needs to start, so they're left alone.

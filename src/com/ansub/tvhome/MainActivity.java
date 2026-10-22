@@ -78,6 +78,7 @@ public class MainActivity extends Activity {
     private static final String PLAY_STORE = "com.android.vending";
     private static final String SETTINGS = "settings";
     private static final String ADD = "add";
+    private static final String LIVE = "live";
     private static final String[] EDIT_ITEMS = {"Move", "Replace", "Remove from home", "Uninstall"};
     private static final String[] EDIT_ITEMS_SYSTEM = {"Move", "Replace", "Remove from home", "App info"};
     private static final int PER_ROW = 6, MAX_INPUTS = 4;
@@ -93,12 +94,16 @@ public class MainActivity extends Activity {
     private static final String TCL_SHOW_WINDOW = "com.tcl.settings.SHOW_WINDOW";
 
     // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px().
-    private static final int MARGIN = 96, GAP = 36, RADIUS = 28;
-    private static final int ROW1_TOP = 604, ROW_STEP = 224;
+    // The dock sits DOCK_SIDE from the screen's sides and bottom, with DOCK_PAD inside it on every side;
+    // MARGIN, where tiles, the name and the clock line up, is the two together.
+    private static final int DOCK_SIDE = 32, DOCK_PAD = 44, MARGIN = DOCK_SIDE + DOCK_PAD, GAP = 32, RADIUS = 28;
+    private static final int ROW_STEP = 224; // a tile (150) and room for the focused app's name under it
+    private static final int ROW1_TOP = 1080 - DOCK_SIDE - DOCK_PAD - 150 - ROW_STEP; // dock ends DOCK_SIDE up
     private static final int ICON_TOP = 64, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
     // tvOS look: the top shelf shows the focused app big, blurred, with its name; the apps sit on a
     // glass dock below it. More rows than fit scroll the shelf away, like Apple TV.
-    private static final int SHELF_H = 560, TITLE_TOP = 318, DOCK_PAD = 40, CLOCK_SIZE = 40;
+    private static final int SHELF_H = 620, TITLE_TOP = 300, CLOCK_SIZE = 40;
+    private static final int ART_W = 712, ART_H = 400, ART_TOP = 152; // the app's own art, sharp, at the right
     private static final float FOCUS_SCALE = 1.12f;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
@@ -134,6 +139,7 @@ public class MainActivity extends Activity {
 
     private FrameLayout root; // the page, inside a vertical scroller
     private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
+    private ImageView shelfArt;   // the same art, sharp, at the right of the shelf
     private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
@@ -192,12 +198,12 @@ public class MainActivity extends Activity {
         scroller.addView(root, new FrameLayout.LayoutParams(-1, -2));
         shownLocale = java.util.Locale.getDefault();
 
-        // Top shelf, back to front: art, scrim, then the name.
+        // Top shelf, back to front: a soft wash of the art's colours, a scrim for the clock, the art itself
+        // (sharp, at the right, like Apple TV), then the name.
         shelf = new ImageView(this);
         shelf.setScaleType(ImageView.ScaleType.FIT_XY);
-        shelf.setAlpha(0.9f);
-        // The art is blurred in its small bitmap (see blurred), not with RenderEffect: that one draws past
-        // the view's edges, as a band under the shelf.
+        // The wash is blurred and faded out in its small bitmap (see shelfWash), not with RenderEffect:
+        // that one draws past the view's edges, as a band under the shelf.
         FrameLayout shelfFrame = new FrameLayout(this);
         shelfFrame.addView(shelf, new FrameLayout.LayoutParams(-1, -1));
         shelfScrim = new View(this);
@@ -205,12 +211,24 @@ public class MainActivity extends Activity {
         root.addView(shelfFrame, at(0, 0, -1, px(SHELF_H)));
         updateScrim(WALLPAPERS[wallpaper()]);
 
+        shelfArt = new ImageView(this);
+        shelfArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        GradientDrawable artShape = new GradientDrawable();
+        artShape.setCornerRadius(px(RADIUS));
+        artShape.setColor(0xFF1E1A1C);
+        shelfArt.setBackground(artShape);
+        shelfArt.setClipToOutline(true);
+        shelfArt.setElevation(px(24));
+        shelfArt.setAlpha(0f);
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
+
         shelfTitle = text(px(80), Color.WHITE, semibold);
         shelfTitle.setLetterSpacing(-0.02f);
         shelfTitle.setSingleLine(true);
         shelfTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         shelfTitle.setIncludeFontPadding(false);
-        int textW = getResources().getDisplayMetrics().widthPixels * 2 / 3;
+        int textW = sw - 2 * px(MARGIN) - px(ART_W) - px(48); // up to the art
         root.addView(shelfTitle, at(px(MARGIN), px(TITLE_TOP), textW, -2));
         shelfSub = text(px(30), 0xB3FFFFFF, regular);
         shelfSub.setSingleLine(true);
@@ -392,32 +410,30 @@ public class MainActivity extends Activity {
         updateScrim(WALLPAPERS[i]);
     }
 
-    // Dark on the left so the name reads on any art, and fading into the wallpaper's middle colour at
-    // the bottom, so the shelf has no hard edge above the dock.
+    // A light shade at the top, so the clock reads on bright art. The wash fades out on its own at the
+    // bottom and darkens on the left (see shelfWash), so nothing here has an edge.
     private void updateScrim(int[] c) {
         if (shelfScrim == null) return;
-        GradientDrawable side = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[] {0xB3000000, 0x40000000, 0x00000000});
-        GradientDrawable fade = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0x66000000, 0x00000000, c[1] & 0x00FFFFFF, c[1]});
-        side.setDither(true);
-        fade.setDither(true);
-        shelfScrim.setBackground(new LayerDrawable(new Drawable[] {side, fade}));
+        GradientDrawable top = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0x59000000, 0x00000000, 0x00000000, 0x00000000});
+        top.setDither(true);
+        shelfScrim.setBackground(top);
     }
 
-    // Shows a tile on the top shelf: its art, blurred, and its name. Inputs and settings have no art,
-    // so the shelf clears to the wallpaper. The old art cross-fades out.
+    // Shows a tile on the top shelf: a wash of its colours, its art sharp at the right, and its name.
+    // Inputs and settings have no art, so the shelf clears to the wallpaper. Old art cross-fades out.
     private void showOnShelf(String key, String title, String sub, Drawable art) {
         if (shelf == null || key.equals(shelfKey)) return;
         shelfKey = key;
-        Drawable next = art == null ? new ColorDrawable(Color.TRANSPARENT) : blurred(fit(art, 120, 35));
-        Drawable prev = shelf.getDrawable();
-        if (prev instanceof TransitionDrawable) prev = ((TransitionDrawable) prev).getDrawable(1);
-        if (prev == null) prev = new ColorDrawable(Color.TRANSPARENT);
-        TransitionDrawable fade = new TransitionDrawable(new Drawable[] {prev, next});
-        fade.setCrossFadeEnabled(true);
-        shelf.setImageDrawable(fade);
-        fade.startTransition(320);
+        crossFade(shelf, art == null ? null : shelfWash(fit(art, 160, 52)));
+        crossFade(shelfArt, art == null ? null : fit(art, px(ART_W), px(ART_H)));
+        shelfArt.animate().alpha(art == null ? 0f : 1f).setDuration(260).start();
+        if (art != null) {
+            shelfArt.setScaleX(0.97f);
+            shelfArt.setScaleY(0.97f);
+            shelfArt.animate().scaleX(1f).scaleY(1f).setDuration(320)
+                    .setInterpolator(new DecelerateInterpolator()).start();
+        }
 
         shelfTitle.setText(title);
         shelfSub.setText(sub);
@@ -497,9 +513,9 @@ public class MainActivity extends Activity {
         gridTop = px(ROW1_TOP);
         int bottomTop = gridTop + rows * px(ROW_STEP);
         ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = gridTop - px(DOCK_PAD) - px(48);
-        root.setMinimumHeight(bottomTop + h + px(MARGIN));
-        int dp = px(DOCK_PAD);
-        dock.setLayoutParams(at(m - dp, gridTop - dp, getResources().getDisplayMetrics().widthPixels - 2 * (m - dp),
+        int dp = px(DOCK_PAD), ds = px(DOCK_SIDE);
+        root.setMinimumHeight(bottomTop + h + dp + ds);
+        dock.setLayoutParams(at(ds, gridTop - dp, getResources().getDisplayMetrics().widthPixels - 2 * ds,
                 bottomTop + h - gridTop + 2 * dp));
 
         for (String pkg : apps) {
@@ -520,12 +536,16 @@ public class MainActivity extends Activity {
             addTile(root, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
         }
 
-        // Bottom row: Play Store, HDMI inputs, Settings and Add app, six at most.
+        // Bottom row: Live TV (or the Play Store on a TV without it), HDMI inputs, Settings and Add app,
+        // six at most. The Play Store is still in the app list and can go on the top row.
         int col = 0;
-        boolean store = !apps.contains(PLAY_STORE) && launchIntent(pm, PLAY_STORE) != null;
+        boolean live = liveTvIntent() != null;
+        boolean store = !live && !apps.contains(PLAY_STORE) && launchIntent(pm, PLAY_STORE) != null;
         List<TvInputInfo> inputs = hdmiInputs();
-        int room = PER_ROW - 2 - (store ? 1 : 0);
+        int room = PER_ROW - 2 - (live || store ? 1 : 0);
         if (inputs.size() > room) inputs = inputs.subList(0, room);
+        if (live)
+            addTile(root, LIVE, Strings.t("Live TV"), null, LineIcon.LIVE, null, m + col++ * (w + g), bottomTop, w, h);
         if (store)
             addTile(root, PLAY_STORE, "Play Store", null, LineIcon.PLAY, null, m + col++ * (w + g), bottomTop, w, h);
         for (TvInputInfo in : inputs)
@@ -564,9 +584,11 @@ public class MainActivity extends Activity {
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
         final TextView name; // glass tiles only: label and line icon turn dark on the white focus
+        final ImageView glyph; // the line icon's view; tinted on the view, so it redraws at once
         final LineIcon line = lineIcon != null ? new LineIcon(lineIcon) : null;
         if (banner != null) {
             name = null;
+            glyph = null;
             bg.setColor(0xFF1E1A1C);
             ImageView iv = new ImageView(this);
             iv.setImageDrawable(fit(banner, w, h));
@@ -580,6 +602,7 @@ public class MainActivity extends Activity {
             inner.setGravity(Gravity.CENTER);
             ImageView iv = new ImageView(this);
             int size = lineIcon != null ? px(44) : px(64);
+            glyph = line != null ? iv : null;
             if (line != null) iv.setImageDrawable(line);
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
@@ -633,7 +656,10 @@ public class MainActivity extends Activity {
             if (glass) {
                 bg.setColor(has ? 0xF2FFFFFF : 0x1AFFFFFF);
                 if (name != null) name.setTextColor(has ? 0xFF1C1C1E : 0xE6FFFFFF);
-                if (line != null) line.setColorFilter(has ? new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN) : null);
+                if (glyph != null) {
+                    if (has) glyph.setColorFilter(new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN));
+                    else glyph.clearColorFilter();
+                }
             }
             // Lift with a little spring, settle back gently: the tvOS focus feel.
             v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
@@ -734,6 +760,9 @@ public class MainActivity extends Activity {
         Intent i;
         if (ADD.equals(key)) {
             showAddMenu(-1);
+            return;
+        } else if (LIVE.equals(key)) {
+            openLiveTv();
             return;
         } else if (SETTINGS.equals(key)) {
             dropdown(tile(SETTINGS), SETTINGS_ITEMS, which -> {
@@ -886,6 +915,13 @@ public class MainActivity extends Activity {
 
     // Opens a shortcut's screen: the first one that starts wins. False if none did.
     private boolean openQuick(String name) {
+        // Android 12+ only lets apps with "Nearby devices" open the Bluetooth pairing screen (Android TV
+        // has no other Bluetooth page). Ask once; the answer comes back in onRequestPermissionsResult.
+        if (name.equals("bluetooth") && android.os.Build.VERSION.SDK_INT >= 31
+                && checkSelfPermission(BT_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {BT_CONNECT}, 1);
+            return true;
+        }
         for (Intent i : quickIntents(name)) {
             try {
                 if (TCL_SHOW_WINDOW.equals(i.getAction())) startService(i);
@@ -894,6 +930,15 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
         }
         return false;
+    }
+
+    private static final String BT_CONNECT = "android.permission.BLUETOOTH_CONNECT";
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        if (code != 1) return;
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) openQuick("bluetooth");
+        else openTvSettings(); // without it, the TV's settings still reach Bluetooth
     }
 
     // The TV's own picture screen, where brightness lives: the Picture shortcut's screens first (TCL's
@@ -1140,17 +1185,28 @@ public class MainActivity extends Activity {
     private static final String[] LIVE_TV_APPS = {"com.android.tv", "com.droidlogic.android.tv",
             "com.mediatek.wwtv.tvcenter", "com.tcl.tv"};
 
-    private boolean openLiveTv() {
-        PackageManager pm = getPackageManager();
+    private Intent liveTvIntent() {
+        return liveTvIntent(this);
+    }
+
+    static Intent liveTvIntent(Context c) {
+        PackageManager pm = c.getPackageManager();
         for (String p : LIVE_TV_APPS) {
             Intent i = launchIntent(pm, p);
-            if (i == null) continue;
-            try {
-                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                return true;
-            } catch (Exception ignored) {}
+            if (i != null) return i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         }
-        return false;
+        return null;
+    }
+
+    private boolean openLiveTv() {
+        Intent i = liveTvIntent();
+        if (i == null) return false;
+        try {
+            startActivity(i);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // Remote buttons that reach the home screen because no app is in front. The rest (Home, volume,
@@ -1324,22 +1380,49 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Blurs a small bitmap in place with three box blurs (close to a Gaussian). At 120x35 pixels it takes
-    // well under a millisecond, and stretched to the shelf it reads as a soft wash of the app's art.
-    private Drawable blurred(Drawable d) {
+    private void crossFade(ImageView v, Drawable next) {
+        if (next == null) next = new ColorDrawable(Color.TRANSPARENT);
+        Drawable prev = v.getDrawable();
+        if (prev instanceof TransitionDrawable) prev = ((TransitionDrawable) prev).getDrawable(1);
+        if (prev == null) prev = new ColorDrawable(Color.TRANSPARENT);
+        TransitionDrawable fade = new TransitionDrawable(new Drawable[] {prev, next});
+        fade.setCrossFadeEnabled(true);
+        v.setImageDrawable(fade);
+        fade.startTransition(320);
+    }
+
+    // The shelf's wash, made in a small bitmap: blurred with two box blurs, darker on the left so the
+    // name reads, and faded to nothing at the bottom, so it melts into whatever wallpaper is behind.
+    // At 160x52 pixels this takes well under a millisecond.
+    private Drawable shelfWash(Drawable d) {
         if (!(d instanceof BitmapDrawable)) return d;
         Bitmap b = ((BitmapDrawable) d).getBitmap();
         int w = b.getWidth(), h = b.getHeight();
         int[] px = new int[w * h], tmp = new int[w * h];
         b.getPixels(px, 0, w, 0, 0, w, h);
-        for (int pass = 0; pass < 3; pass++) {
-            boxBlur(px, tmp, w, h, 4, true);
-            boxBlur(tmp, px, w, h, 4, false);
+        for (int pass = 0; pass < 2; pass++) {
+            boxBlur(px, tmp, w, h, 3, true);
+            boxBlur(tmp, px, w, h, 3, false);
+        }
+        for (int y = 0; y < h; y++) {
+            float fy = (float) y / (h - 1);
+            float alpha = 0.85f * (fy < 0.45f ? 1f : smooth(1f - (fy - 0.45f) / 0.55f));
+            for (int x = 0; x < w; x++) {
+                float light = 0.35f + 0.65f * smooth(Math.min(1f, (float) x / (w * 0.6f)));
+                int c = px[y * w + x];
+                int r = Math.round(((c >> 16) & 0xFF) * light), g = Math.round(((c >> 8) & 0xFF) * light);
+                int bl = Math.round((c & 0xFF) * light), a = Math.round((c >>> 24) * alpha);
+                px[y * w + x] = a << 24 | r << 16 | g << 8 | bl;
+            }
         }
         b.setPixels(px, 0, w, 0, 0, w, h);
         BitmapDrawable out = new BitmapDrawable(getResources(), b);
         out.setFilterBitmap(true);
         return out;
+    }
+
+    private static float smooth(float t) {
+        return t * t * (3 - 2 * t);
     }
 
     // One box blur along rows (or columns), edges clamped, channel by channel.

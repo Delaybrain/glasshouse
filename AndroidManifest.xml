@@ -34,6 +34,8 @@
         <package android:name="com.android.tv" />
         <package android:name="com.droidlogic.android.tv" />
     </queries>
+    <!-- Android 12+: the Bluetooth shortcut and Control Center open the TV's pairing screen, which needs it. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -52,6 +54,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- The remote's Settings button (through HomeGuard): a panel over whatever is playing. Its own
+             task affinity, so opening it doesn't bring the home screen to the front behind it. -->
+        <activity android:name=".ControlCenter"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
+            android:taskAffinity="com.ansub.tvhome.control"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask" />
         <!-- Off until turned on (homeguard.sh): brings this home screen up over Google TV's. -->
         <service android:name=".HomeGuard"
             android:label="Home: Home-Taste"
