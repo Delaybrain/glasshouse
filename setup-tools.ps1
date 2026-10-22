@@ -28,7 +28,14 @@ if (-not (Test-Path $sdkmanager)) {
     Remove-Item tools\cmdline.zip, tools\cmdline-tmp -Recurse -Force
 }
 
-Write-Host "Installing platform 34 and build-tools 34 (accept the licences when asked)..."
-& $sdkmanager "--sdk_root=$sdk" "platforms;android-34" "build-tools;34.0.0"
-if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed" }
+# sdkmanager.bat breaks on a space anywhere in its path ("TV Debloat"), so it runs from Windows'
+# short 8.3 names, through cmd.
+function Short($p) { (cmd /c "for %I in (`"$p`") do @echo %~sI").Trim() }
+$sm = Short $sdkmanager; $root = Short $sdk; $javaHome = Short $jdk
+
+Write-Host "Android SDK licences:"
+cmd /c "set JAVA_HOME=$javaHome&& $sm --sdk_root=$root --licenses"
+Write-Host "Installing platform 34 and build-tools 34..."
+cmd /c "set JAVA_HOME=$javaHome&& $sm --sdk_root=$root platforms;android-34 build-tools;34.0.0"
+if (-not (Test-Path "$sdk\platforms\android-34\android.jar")) { throw "sdkmanager failed" }
 Write-Host "Done. Now run build.ps1."
