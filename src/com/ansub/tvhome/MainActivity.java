@@ -94,18 +94,24 @@ public class MainActivity extends Activity {
     private static final String TCL_SHOW_WINDOW = "com.tcl.settings.SHOW_WINDOW";
 
     // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px(). It follows variant B
-    // ("compact glass dock") of the design in Desing/TV-Launcher: text and clock keep the TV's safe area
-    // (MARGIN, 96 from the sides); the glass dock holds a row of apps and, under it, the inputs as pills.
-    // More rows than fit scroll the shelf away, like Apple TV.
-    private static final int MARGIN = 96, CLOCK_TOP = 54, CLOCK_SIZE = 38;
-    private static final int DOCK_X = 64, DOCK_TOP = 620, DOCK_PAD = 40, DOCK_RADIUS = 40;
-    private static final int TILE_W = 256, TILE_H = 144, GAP = 32, RADIUS = 24;
-    private static final int TILE_LEFT = DOCK_X + DOCK_PAD, ROW1_TOP = DOCK_TOP + DOCK_PAD;
-    private static final int ROW_STEP = 220; // a tile and room for the focused app's name under it
+    // ("compact glass dock") of the design in Desing/TV-Launcher: the glass dock holds a row of apps
+    // and, under it, the inputs as pills. More rows than fit scroll the shelf away, like Apple TV.
+    // The dock is DOCK_X from the sides and the bottom alike. Everything lines up with the dock's inner
+    // edges (MARGIN from both sides): name and first tile on the left, art, clock and last tile on the
+    // right. Six tiles and five gaps fill the dock's inside exactly: 6 x 262 + 5 x 28 = 1712.
+    private static final int DOCK_X = 64, DOCK_PAD = 40, DOCK_RADIUS = 40, MARGIN = DOCK_X + DOCK_PAD;
+    private static final int TILE_W = 262, TILE_H = 147, GAP = 28, RADIUS = 24;
     private static final int PILL_H = 64, PILL_GAP = 20, PILL_PAD = 28, PILL_ICON = 28, PILL_ROOM = 96; // ROOM: tile to pills
+    private static final int DOCK_TOP = 1080 - DOCK_X - (DOCK_PAD + TILE_H + PILL_ROOM + PILL_H + DOCK_PAD);
+    private static final int TILE_LEFT = MARGIN, ROW1_TOP = DOCK_TOP + DOCK_PAD;
+    private static final int ROW_STEP = TILE_H + 76; // a tile and room for the focused app's name under it
+    private static final int CLOCK_TOP = 54, CLOCK_SIZE = 38, CLOCK_BOTTOM = 99;
     private static final int ICON_TOP = 40, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
-    private static final int SHELF_H = 620, TITLE_TOP = 250, SUB_TOP = 350;
-    private static final int ART_W = 640, ART_H = 360, ART_TOP = 110, ART_RADIUS = 32; // the app's art, sharp, at the right
+    // The art sits halfway between the clock and the dock; the name is level with the art's middle.
+    private static final int ART_W = 640, ART_H = 360, ART_RADIUS = 32;
+    private static final int ART_TOP = (CLOCK_BOTTOM + DOCK_TOP - ART_H) / 2;
+    private static final int TITLE_TOP = ART_TOP + ART_H / 2 - 69, SUB_TOP = TITLE_TOP + 100; // 69: half the name + line
+    private static final int SHELF_H = DOCK_TOP;
     private static final float FOCUS_SCALE = 1.10f;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
@@ -578,7 +584,7 @@ public class MainActivity extends Activity {
         int pillTop = gridTop + (rows - 1) * px(ROW_STEP) + h + px(PILL_ROOM);
         int dockBottom = pillTop + px(PILL_H) + px(DOCK_PAD);
         ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = px(DOCK_TOP) - px(48);
-        root.setMinimumHeight(dockBottom + px(76)); // as far from the bottom as one row leaves it
+        root.setMinimumHeight(dockBottom + px(DOCK_X)); // as far from the bottom as from the sides
         dock.setLayoutParams(at(px(DOCK_X), px(DOCK_TOP), getResources().getDisplayMetrics().widthPixels - 2 * px(DOCK_X),
                 dockBottom - px(DOCK_TOP)));
 
