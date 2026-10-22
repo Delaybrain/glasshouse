@@ -36,6 +36,9 @@
     </queries>
     <!-- Android 12+: the Bluetooth shortcut and Control Center open the TV's pairing screen, which needs it. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- The recent row under the top shelf: which apps were used last. Granted over adb only:
+         adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-feature android:name="android.software.leanback" android:required="false" />

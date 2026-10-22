@@ -79,6 +79,8 @@ public class MainActivity extends Activity {
     private static final String SETTINGS = "settings";
     private static final String ADD = "add";
     private static final String LIVE = "live";
+    private static final String RECENT = "recent:"; // + package: a tile in the recent row under the shelf
+    private static final int RECENTS = 5, RECENT_W = 160, RECENT_H = 90, RECENT_GAP = 24, RECENT_TOP = 468;
     private static final String[] EDIT_ITEMS = {"Move", "Replace", "Remove from home", "Uninstall"};
     private static final String[] EDIT_ITEMS_SYSTEM = {"Move", "Replace", "Remove from home", "App info"};
     private static final int PER_ROW = 6, MAX_INPUTS = 4;
@@ -143,6 +145,8 @@ public class MainActivity extends Activity {
     private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
+    private final java.util.Map<String, Long> lastUsed = new java.util.HashMap<>(); // package -> last seen
+    private String mostRecent;    // the app used last, if usage stats are allowed
     private View dock;            // the glass panel the tiles sit on
     private TextClock clockView;
     private int tileW, tileH, gridTop; // app grid geometry, set by buildTiles
@@ -356,10 +360,106 @@ public class MainActivity extends Activity {
         if (dirty) {
             dirty = false;
             buildTiles();
+        } else if (movingKey == null) {
+            // Coming back from an app: it's the most recent one now.
+            root.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+            buildRecents();
+            root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         }
         refreshNetwork();
-        View f = getCurrentFocus();
-        if (f == null && !tiles.isEmpty()) tiles.get(0).requestFocus();
+        // Like Apple TV, Home comes back on the app you just left, and the shelf says when that was.
+        View target = movingKey == null && mostRecent != null ? tile(mostRecent) : null;
+        if (target == null && movingKey == null && mostRecent != null && mostRecent.equals(livePackage())) target = tile(LIVE);
+        if (target == null) target = getCurrentFocus();
+        if (target == null && !tiles.isEmpty()) target = tiles.get(0);
+        if (target != null) {
+            shelfKey = null;
+            if (target.isFocused() && target.getOnFocusChangeListener() != null)
+                target.getOnFocusChangeListener().onFocusChange(target, true);
+            else target.requestFocus();
+        }
+    }
+
+    // The small row under the shelf's name: the apps used last, newest first, from Android's usage
+    // stats (allowed with: adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow). Without that
+    // permission the list is empty and the row isn't there.
+    private void buildRecents() {
+        for (java.util.Iterator<View> it = tiles.iterator(); it.hasNext(); ) {
+            View t = it.next();
+            if (!((String) t.getTag()).startsWith(RECENT)) continue;
+            View wrap = (View) t.getParent();
+            ((ViewGroup) wrap.getParent()).removeView(wrap);
+            it.remove();
+        }
+        List<String> recent = recentApps();
+        mostRecent = recent.isEmpty() ? null : recent.get(0);
+        PackageManager pm = getPackageManager();
+        int w = px(RECENT_W), h = px(RECENT_H), x = px(MARGIN);
+        for (String pkg : recent) {
+            Drawable banner = bannerOf(pm, pkg), icon = null;
+            if (banner == null) try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
+            addTile(root, RECENT + pkg, labelOf(pkg), banner, null, icon, x, px(RECENT_TOP), w, h);
+            x += w + px(RECENT_GAP);
+        }
+    }
+
+    private List<String> recentApps() {
+        lastUsed.clear();
+        List<String> out = new ArrayList<>();
+        android.app.usage.UsageStatsManager um =
+                (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+        if (um == null) return out;
+        long now = System.currentTimeMillis();
+        List<android.app.usage.UsageStats> stats;
+        try {
+            stats = um.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_BEST, now - 14L * 24 * 3600 * 1000, now);
+        } catch (Exception e) {
+            return out;
+        }
+        if (stats == null) return out;
+        PackageManager pm = getPackageManager();
+        for (android.app.usage.UsageStats s : stats) {
+            String p = s.getPackageName();
+            long t = android.os.Build.VERSION.SDK_INT >= 29 ? s.getLastTimeVisible() : s.getLastTimeUsed();
+            if (t <= 0 || t > now || p.equals(getPackageName()) || NOT_APPS.contains(p)) continue;
+            Long had = lastUsed.get(p);
+            if (had != null && had >= t) continue;
+            if (had == null && launchIntent(pm, p) == null) continue;
+            lastUsed.put(p, t);
+        }
+        out.addAll(lastUsed.keySet());
+        Collections.sort(out, (a, b) -> Long.compare(lastUsed.get(b), lastUsed.get(a)));
+        return new ArrayList<>(out.subList(0, Math.min(RECENTS, out.size())));
+    }
+
+    // What the shelf says under a tile's name: when an app was last used ("Continue watching" for the
+    // last one), what an input or Settings is, or nothing.
+    private String subFor(String key) {
+        if (isInput(key)) return Strings.t("HDMI input");
+        if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
+        String pkg = key.startsWith(RECENT) ? key.substring(RECENT.length()) : LIVE.equals(key) ? livePackage() : key;
+        Long t = pkg == null ? null : lastUsed.get(pkg);
+        if (t == null) return "";
+        long now = System.currentTimeMillis();
+        // Android says "0 minutes ago" for the last minute.
+        CharSequence ago = now - t < 60_000 ? Strings.t("just now")
+                : android.text.format.DateUtils.getRelativeTimeSpanString(t, now, android.text.format.DateUtils.MINUTE_IN_MILLIS);
+        return Strings.t(pkg.equals(mostRecent) ? "Continue watching" : "Last used") + "  ·  " + ago;
+    }
+
+    private String livePackage() {
+        Intent i = liveTvIntent();
+        return i == null || i.getComponent() == null ? null : i.getComponent().getPackageName();
+    }
+
+    private static Drawable bannerOf(PackageManager pm, String pkg) {
+        try {
+            Intent li = launchIntent(pm, pkg);
+            Drawable b = li == null ? null : pm.getActivityBanner(li);
+            return b != null ? b : pm.getApplicationBanner(pkg);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // Back from a menu or a window on top (like the uninstall prompt): catch up on apps that changed.
@@ -569,6 +669,7 @@ public class MainActivity extends Activity {
         netState = -1;
         refreshNetwork();
 
+        buildRecents();
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         // An app that was uninstalled hands focus to the one now in its place, as Remove does.
         if (wantAt >= 0 && !rowApps.contains(want))
@@ -635,12 +736,10 @@ public class MainActivity extends Activity {
         card.setFocusable(true);
         card.setTag(key);
 
-        final String sub = isInput(key) ? Strings.t("HDMI input")
-                : SETTINGS.equals(key) ? android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS)) : "";
         final Drawable art = banner != null ? banner : appIcon;
 
-        // Banner tiles show their name underneath when focused.
-        final TextView caption = banner == null ? null : text(px(24), Color.WHITE, regular);
+        // Banner tiles show their name underneath when focused; the small recent tiles have no room.
+        final TextView caption = banner == null || key.startsWith(RECENT) ? null : text(px(24), Color.WHITE, regular);
         if (caption != null) {
             caption.setText(label);
             caption.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -651,7 +750,7 @@ public class MainActivity extends Activity {
         card.setOnFocusChangeListener((v, has) -> {
             if (has) {
                 focusedKey = key;
-                showOnShelf(key, label, sub, art);
+                showOnShelf(key, label, subFor(key), art); // asked now: "5 min ago" keeps changing
             }
             if (glass) {
                 bg.setColor(has ? 0xF2FFFFFF : 0x1AFFFFFF);
@@ -781,7 +880,7 @@ public class MainActivity extends Activity {
             openQuick(key.substring(QUICK.length()));
             return;
         } else {
-            i = launchIntent(getPackageManager(), key);
+            i = launchIntent(getPackageManager(), key.startsWith(RECENT) ? key.substring(RECENT.length()) : key);
             if (i == null) return;
         }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
