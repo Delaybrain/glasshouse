@@ -1,11 +1,11 @@
 package com.ansub.tvhome;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
 
 import java.util.HashSet;
@@ -30,15 +30,27 @@ public class HomeGuard extends AccessibilityService {
         try { startActivity(i); } catch (Exception ignored) {}
     };
 
+    // What it listens to is set in res/xml/homeguard.xml: key filtering can only be asked for there.
     @Override
     protected void onServiceConnected() {
-        // Set here instead of in an XML file, so the app still needs no resources.
-        AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
-        info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
-        info.notificationTimeout = 0;
-        setServiceInfo(info);
         findOtherHomes();
+    }
+
+    // Home and Apps, before Android hands them on. On Google TV both go to Google TV's home screen
+    // (the Apps button through its GlobalKeyListener), so this home screen would never see them.
+    // Everything else passes through untouched.
+    @Override
+    protected boolean onKeyEvent(KeyEvent e) {
+        int code = e.getKeyCode();
+        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS) return false;
+        if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled()) {
+            handler.removeCallbacks(bringHome);
+            Intent i = new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+            if (code == KeyEvent.KEYCODE_ALL_APPS) i.putExtra("show", "apps");
+            try { startActivity(i); } catch (Exception ignored) {}
+        }
+        return true;
     }
 
     // Every Home page on the TV but this one, by package/class. Settings and setup apps answer Home too,

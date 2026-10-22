@@ -241,6 +241,7 @@ public class MainActivity extends Activity {
         root.addView(moveHint, at(px(MARGIN), px(ROW1_TOP - 64), -2, -2));
 
         setContentView(scroller);
+        showRequested(getIntent());
 
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -270,6 +271,15 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (saveConfig(intent)) buildTiles();
+        showRequested(intent);
+    }
+
+    // HomeGuard opens the app list for the remote's Apps button with --es show apps. Taken out of the
+    // intent once shown, so the list doesn't come back when Android restarts the home screen.
+    private void showRequested(Intent intent) {
+        if (intent == null || !"apps".equals(intent.getStringExtra("show"))) return;
+        intent.removeExtra("show");
+        root.post(this::showAllApps);
     }
 
     // Saves an app list passed with --es apps "..." and shortcuts passed with --es quick "...".

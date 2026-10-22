@@ -38,8 +38,10 @@ $java += $apps | ForEach-Object { "    `"$_`"," }
 $java += "}; }"
 [IO.File]::WriteAllLines("$PSScriptRoot\out\gen\com\ansub\tvhome\Apps.java", $java)
 
+# The only resource is HomeGuard's accessibility config in res\xml.
+Run "$bt\aapt2.exe" @("compile", "--dir", "res", "-o", "out\res.zip")
 Run "$bt\aapt2.exe" @("link", "-o", "out\base.apk", "-I", $jar, "--manifest", "AndroidManifest.xml",
-    "--min-sdk-version", "21", "--target-sdk-version", "34")
+    "-R", "out\res.zip", "--auto-add-overlay", "--min-sdk-version", "21", "--target-sdk-version", "34")
 
 $sources = Get-ChildItem src, out\gen -Recurse -Filter *.java | ForEach-Object { $_.FullName }
 Run "javac" (@("-nowarn", "-Xlint:-options", "-encoding", "UTF-8", "-source", "1.8", "-target", "1.8",
