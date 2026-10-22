@@ -37,15 +37,14 @@ public class HomeGuard extends AccessibilityService {
         findOtherHomes();
     }
 
-    // Home, Apps, Settings, Guide and the person and input buttons, before Android hands them on. On
-    // Google TV these go to Google TV's home screen (Settings opens its side panel), so with it off
-    // they'd do nothing. Home and Apps open this home screen (Apps with its app list), Settings opens
-    // Control Center, the person button the TV's account page, Guide and input Live TV (see below).
-    // Everything else passes through untouched.
+    // Home, Apps, Settings, Guide and the person button, before Android hands them on. On Google TV
+    // these go to Google TV's home screen (Settings opens its side panel), so with it off they'd do
+    // nothing. Home and Apps open this home screen (Apps with its app list), Settings opens Control
+    // Center, the person button the TV's account page, Guide Live TV (see below). Everything else
+    // passes through untouched, the input button too: the TV's own input picker handles it.
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
-        if (code == KeyEvent.KEYCODE_TV_INPUT) return tvButton(e);
         if (code == KeyEvent.KEYCODE_GUIDE) return guideButton(e);
         // The gear button sends NOTIFICATION on some remotes (Peaq), SETTINGS on others.
         boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
@@ -81,28 +80,7 @@ public class HomeGuard extends AccessibilityService {
         return true;
     }
 
-    private static final String VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS"; // the TV's input picker
-    private boolean inputsShown; // the TV button was held long enough to open the input picker
-    private String front = "";   // the app in front, from window changes
-
-    // The TV button (KEYCODE_TV_INPUT, a TV with an arrow): a press opens Live TV, or the input picker
-    // when Live TV is already in front; holding it opens the input picker straight away.
-    private boolean tvButton(KeyEvent e) {
-        if (e.getAction() == KeyEvent.ACTION_DOWN) {
-            if (e.getRepeatCount() == 0) inputsShown = false;
-            else if (!inputsShown && e.getEventTime() - e.getDownTime() >= 500) {
-                inputsShown = true;
-                start(new Intent(VIEW_INPUTS));
-            }
-            return true;
-        }
-        if (e.isCanceled() || inputsShown) return true;
-        Intent live = MainActivity.liveTvIntent(this);
-        boolean inLiveTv = live != null && live.getComponent() != null
-                && front.equals(live.getComponent().getPackageName());
-        start(live == null || inLiveTv ? new Intent(VIEW_INPUTS) : live);
-        return true;
-    }
+    private String front = ""; // the app in front, from window changes
 
     private void start(Intent i) {
         try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
