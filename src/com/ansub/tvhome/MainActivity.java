@@ -152,6 +152,7 @@ public class MainActivity extends Activity {
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
     private final java.util.Map<String, Long> lastUsed = new java.util.HashMap<>(); // package -> last seen
+    private final java.util.Map<String, String> cecDevices = new java.util.HashMap<>(); // HDMI input -> device on it
     private String mostRecent;    // the app used last, if usage stats are allowed
     private View dock;            // the glass panel the tiles sit on
     private TextClock clockView;
@@ -284,13 +285,35 @@ public class MainActivity extends Activity {
             if (android.os.Build.VERSION.SDK_INT >= 24) cm.registerDefaultNetworkCallback(networkChanged);
             else cm.registerNetworkCallback(new NetworkRequest.Builder().build(), networkChanged);
         } catch (Exception ignored) {}
+
+        TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
+        if (tim != null) try { tim.registerCallback(inputsChanged, new android.os.Handler(getMainLooper())); }
+        catch (Exception ignored) {}
     }
+
+    // An HDMI-CEC device turned on or off (Android adds or removes its input): redraw the pills' dots.
+    // Waits a second, as a device coming up sends several of these at once.
+    private final Runnable inputsSettled = () -> {
+        dirty = true;
+        refreshApps();
+    };
+    private final TvInputManager.TvInputCallback inputsChanged = new TvInputManager.TvInputCallback() {
+        @Override public void onInputAdded(String id) { changed(); }
+        @Override public void onInputRemoved(String id) { changed(); }
+        @Override public void onInputStateChanged(String id, int state) { changed(); }
+        private void changed() {
+            root.removeCallbacks(inputsSettled);
+            root.postDelayed(inputsSettled, 1000);
+        }
+    };
 
     @Override
     protected void onDestroy() {
         unregisterReceiver(packagesChanged);
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm != null) try { cm.unregisterNetworkCallback(networkChanged); } catch (Exception ignored) {}
+        TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
+        if (tim != null) try { tim.unregisterCallback(inputsChanged); } catch (Exception ignored) {}
         super.onDestroy();
     }
 
@@ -417,7 +440,11 @@ public class MainActivity extends Activity {
     // is, or nothing. Only "last opened", never "continue watching": the home screen can't see what
     // was playing in the app.
     private String subFor(String key) {
-        if (isInput(key)) return Strings.t("HDMI input");
+        if (isInput(key)) {
+            String device = cecDevices.get(key);
+            return device != null && !device.isEmpty() ? device + "  ·  " + Strings.t("HDMI input")
+                    : Strings.t("HDMI input") + "  ·  " + Strings.t("No device on");
+        }
         if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
         String pkg = LIVE.equals(key) ? livePackage() : key;
         Long t = pkg == null ? null : lastUsed.get(pkg);
@@ -624,12 +651,14 @@ public class MainActivity extends Activity {
         int x = px(TILE_LEFT);
         boolean live = liveTvIntent() != null;
         boolean store = !live && !apps.contains(PLAY_STORE) && launchIntent(pm, PLAY_STORE) != null;
-        if (live) x += addPill(LIVE, Strings.t("Live TV"), LineIcon.LIVE, x, pillTop) + px(PILL_GAP);
-        if (store) x += addPill(PLAY_STORE, "Play Store", LineIcon.PLAY, x, pillTop) + px(PILL_GAP);
+        if (live) x += addPill(LIVE, Strings.t("Live TV"), LineIcon.LIVE, x, pillTop, false) + px(PILL_GAP);
+        if (store) x += addPill(PLAY_STORE, "Play Store", LineIcon.PLAY, x, pillTop, false) + px(PILL_GAP);
+        refreshCecDevices();
         for (TvInputInfo in : hdmiInputs())
-            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop) + px(PILL_GAP);
-        x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop) + px(PILL_GAP);
-        addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop);
+            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop, cecDevices.containsKey(in.getId()))
+                    + px(PILL_GAP);
+        x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop, false) + px(PILL_GAP);
+        addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop, false);
 
         // A network icon left of the clock, only seen while the TV is offline (see refreshNetwork).
         // Added last, so the first app keeps first focus.
@@ -793,10 +822,10 @@ public class MainActivity extends Activity {
         tiles.add(card);
     }
 
-    // An icon on its own, no tile or label: a glass circle shows behind it only while it's focused.
     // An input or system shortcut under the apps: a glass pill with a line icon and its name, white
-    // when focused, like tvOS buttons. Returns its width, so the next one can follow.
-    private int addPill(final String key, final String label, int[] lineIcon, int x, int y) {
+    // when focused, like tvOS buttons. signal adds a green dot: an HDMI-CEC device on that input is on.
+    // Returns its width, so the next one can follow.
+    private int addPill(final String key, final String label, int[] lineIcon, int x, int y, boolean signal) {
         LinearLayout pill = new LinearLayout(this);
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
@@ -816,6 +845,17 @@ public class MainActivity extends Activity {
         tl.leftMargin = px(12);
         pill.addView(t, tl);
         int w = 2 * px(PILL_PAD) + px(PILL_ICON) + px(12) + Math.round(t.getPaint().measureText(label)) + 1;
+        if (signal) {
+            View dot = new View(this);
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(0xFF34C759); // Apple's green
+            dot.setBackground(g);
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(px(12), px(12));
+            dl.leftMargin = px(12);
+            pill.addView(dot, dl);
+            w += px(24);
+        }
         // Live TV is an app too: the shelf shows its banner, like the app tiles do.
         final Drawable art = LIVE.equals(key) ? liveTvBanner() : null;
 
@@ -845,6 +885,7 @@ public class MainActivity extends Activity {
         return w;
     }
 
+    // An icon on its own, no tile or label: a glass circle shows behind it only while it's focused.
     private ImageView addIcon(final String key, String label, Drawable icon, int x) {
         int b = px(ICON_BUTTON), size = px(ICON_SIZE);
         FrameLayout card = new FrameLayout(this);
@@ -1438,6 +1479,23 @@ public class MainActivity extends Activity {
     }
 
     // The TV's own HDMI inputs (not devices behind them), in order, skipping hidden ones.
+    // HDMI-CEC devices that are on, by the HDMI input they're plugged into, with their names. Android adds
+    // an input of their own for them (parent: the HDMI port). Needs HDMI-CEC on in the TV's settings;
+    // without it, or for a device that's fully off, the port just has no dot. (The plain HDMI inputs
+    // can't tell: on MediaTek they say "connected" whether anything is plugged in or not.)
+    private void refreshCecDevices() {
+        cecDevices.clear();
+        TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
+        if (tim == null) return;
+        for (TvInputInfo in : tim.getTvInputList()) {
+            if (in.getParentId() == null || in.getType() != TvInputInfo.TYPE_HDMI) continue;
+            if (tim.getInputState(in.getId()) == TvInputManager.INPUT_STATE_DISCONNECTED) continue;
+            CharSequence name = in.loadLabel(this);
+            // CEC names have no spaces when they don't fit ("NintendoSwitch"): put them back.
+            cecDevices.put(in.getParentId(), name == null ? "" : name.toString().replaceAll("(?<=[a-z])(?=[A-Z])", " "));
+        }
+    }
+
     private List<TvInputInfo> hdmiInputs() {
         List<TvInputInfo> out = new ArrayList<>();
         TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
