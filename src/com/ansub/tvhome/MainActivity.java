@@ -429,6 +429,19 @@ public class MainActivity extends Activity {
         return Strings.t("Last opened") + "  ·  " + ago;
     }
 
+    private Drawable liveTvBanner() {
+        Intent i = liveTvIntent();
+        if (i == null) return null;
+        PackageManager pm = getPackageManager();
+        try {
+            Drawable b = pm.getActivityBanner(i);
+            if (b == null && i.getComponent() != null) b = pm.getApplicationBanner(i.getComponent().getPackageName());
+            return b;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private String livePackage() {
         Intent i = liveTvIntent();
         return i == null || i.getComponent() == null ? null : i.getComponent().getPackageName();
@@ -803,6 +816,8 @@ public class MainActivity extends Activity {
         tl.leftMargin = px(12);
         pill.addView(t, tl);
         int w = 2 * px(PILL_PAD) + px(PILL_ICON) + px(12) + Math.round(t.getPaint().measureText(label)) + 1;
+        // Live TV is an app too: the shelf shows its banner, like the app tiles do.
+        final Drawable art = LIVE.equals(key) ? liveTvBanner() : null;
 
         pill.setFocusable(true);
         pill.setTag(key);
@@ -810,7 +825,7 @@ public class MainActivity extends Activity {
         pill.setOnFocusChangeListener((v, has) -> {
             if (has) {
                 focusedKey = key;
-                showOnShelf(key, label, subFor(key), null);
+                showOnShelf(key, label, subFor(key), art);
             }
             bg.setColor(has ? Color.WHITE : 0x24FFFFFF);
             bg.setStroke(Math.max(1, px(2)), has ? Color.WHITE : 0x2EFFFFFF);

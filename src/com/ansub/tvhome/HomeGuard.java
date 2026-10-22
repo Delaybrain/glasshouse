@@ -37,13 +37,14 @@ public class HomeGuard extends AccessibilityService {
         findOtherHomes();
     }
 
-    // Home, Apps, Settings, the person button and Guide, before Android hands them on. On Google TV these
+    // Home, Apps, Settings, the person and TV buttons and Guide, before Android hands them on. On Google TV these
     // go to Google TV's home screen (Settings opens its side panel), so with it off they'd do nothing.
     // Home and Apps open this home screen (Apps with its app list), Settings opens Control Center, the
     // person button the TV's account page, Guide the TV guide. Everything else passes through untouched.
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
+        if (code == KeyEvent.KEYCODE_TV_INPUT) return tvButton(e);
         // The gear button sends NOTIFICATION on some remotes (Peaq), SETTINGS on others.
         boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
         boolean profile = code == KeyEvent.KEYCODE_PROFILE_SWITCH;
@@ -73,6 +74,32 @@ public class HomeGuard extends AccessibilityService {
 
     private static final String MEDIATEK_TV = "com.mediatek.wwtv.tvcenter";
     private static final String GUIDE = "com.mediatek.wwtv.tvcenter.saepg.activity";
+    private static final String VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS"; // the TV's input picker
+    private boolean inputsShown; // the TV button was held long enough to open the input picker
+    private String front = "";   // the app in front, from window changes
+
+    // The TV button (KEYCODE_TV_INPUT, a TV with an arrow): a press opens Live TV, or the input picker
+    // when Live TV is already in front; holding it opens the input picker straight away.
+    private boolean tvButton(KeyEvent e) {
+        if (e.getAction() == KeyEvent.ACTION_DOWN) {
+            if (e.getRepeatCount() == 0) inputsShown = false;
+            else if (!inputsShown && e.getEventTime() - e.getDownTime() >= 500) {
+                inputsShown = true;
+                start(new Intent(VIEW_INPUTS));
+            }
+            return true;
+        }
+        if (e.isCanceled() || inputsShown) return true;
+        Intent live = MainActivity.liveTvIntent(this);
+        boolean inLiveTv = live != null && live.getComponent() != null
+                && front.equals(live.getComponent().getPackageName());
+        start(live == null || inLiveTv ? new Intent(VIEW_INPUTS) : live);
+        return true;
+    }
+
+    private void start(Intent i) {
+        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
+    }
 
     // Every Home page on the TV but this one, by package/class. Settings and setup apps answer Home too,
     // as a fallback the TV needs to start, so they're left alone.
@@ -94,6 +121,7 @@ public class HomeGuard extends AccessibilityService {
         if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 || e.getPackageName() == null || e.getClassName() == null) return;
         String pkg = e.getPackageName().toString();
+        if (!pkg.equals("com.android.systemui")) front = pkg; // System UI is only a toast or the volume bar
         if (pkg.equals(getPackageName())) {
             handler.removeCallbacks(bringHome);
             return;
