@@ -79,8 +79,6 @@ public class MainActivity extends Activity {
     private static final String SETTINGS = "settings";
     private static final String ADD = "add";
     private static final String LIVE = "live";
-    private static final String RECENT = "recent:"; // + package: a tile in the recent row under the shelf
-    private static final int RECENTS = 5, RECENT_W = 160, RECENT_H = 90, RECENT_GAP = 24, RECENT_TOP = 468;
     private static final String[] EDIT_ITEMS = {"Move", "Replace", "Remove from home", "Uninstall"};
     private static final String[] EDIT_ITEMS_SYSTEM = {"Move", "Replace", "Remove from home", "App info"};
     private static final int PER_ROW = 6, MAX_INPUTS = 4;
@@ -95,18 +93,20 @@ public class MainActivity extends Activity {
     // TCL keeps its own Picture and Sound panels in a service; Android's Sound page is missing there.
     private static final String TCL_SHOW_WINDOW = "com.tcl.settings.SHOW_WINDOW";
 
-    // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px().
-    // The dock sits DOCK_SIDE from the screen's sides and bottom, with DOCK_PAD inside it on every side;
-    // MARGIN, where tiles, the name and the clock line up, is the two together.
-    private static final int DOCK_SIDE = 32, DOCK_PAD = 44, MARGIN = DOCK_SIDE + DOCK_PAD, GAP = 32, RADIUS = 28;
-    private static final int ROW_STEP = 224; // a tile (150) and room for the focused app's name under it
-    private static final int ROW1_TOP = 1080 - DOCK_SIDE - DOCK_PAD - 150 - ROW_STEP; // dock ends DOCK_SIDE up
-    private static final int ICON_TOP = 64, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
-    // tvOS look: the top shelf shows the focused app big, blurred, with its name; the apps sit on a
-    // glass dock below it. More rows than fit scroll the shelf away, like Apple TV.
-    private static final int SHELF_H = 620, TITLE_TOP = 300, CLOCK_SIZE = 40;
-    private static final int ART_W = 712, ART_H = 400, ART_TOP = 152; // the app's own art, sharp, at the right
-    private static final float FOCUS_SCALE = 1.12f;
+    // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px(). It follows variant B
+    // ("compact glass dock") of the design in Desing/TV-Launcher: text and clock keep the TV's safe area
+    // (MARGIN, 96 from the sides); the glass dock holds a row of apps and, under it, the inputs as pills.
+    // More rows than fit scroll the shelf away, like Apple TV.
+    private static final int MARGIN = 96, CLOCK_TOP = 54, CLOCK_SIZE = 38;
+    private static final int DOCK_X = 64, DOCK_TOP = 620, DOCK_PAD = 40, DOCK_RADIUS = 40;
+    private static final int TILE_W = 256, TILE_H = 144, GAP = 32, RADIUS = 24;
+    private static final int TILE_LEFT = DOCK_X + DOCK_PAD, ROW1_TOP = DOCK_TOP + DOCK_PAD;
+    private static final int ROW_STEP = 220; // a tile and room for the focused app's name under it
+    private static final int PILL_H = 64, PILL_GAP = 20, PILL_PAD = 28, PILL_ICON = 28, PILL_ROOM = 96; // ROOM: tile to pills
+    private static final int ICON_TOP = 40, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
+    private static final int SHELF_H = 620, TITLE_TOP = 250, SUB_TOP = 350;
+    private static final int ART_W = 640, ART_H = 360, ART_TOP = 110, ART_RADIUS = 32; // the app's art, sharp, at the right
+    private static final float FOCUS_SCALE = 1.10f;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
     private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Brightness", "TV settings"};
@@ -218,7 +218,7 @@ public class MainActivity extends Activity {
         shelfArt = new ImageView(this);
         shelfArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable artShape = new GradientDrawable();
-        artShape.setCornerRadius(px(RADIUS));
+        artShape.setCornerRadius(px(ART_RADIUS));
         artShape.setColor(0xFF1E1A1C);
         shelfArt.setBackground(artShape);
         shelfArt.setClipToOutline(true);
@@ -227,33 +227,33 @@ public class MainActivity extends Activity {
         int sw = getResources().getDisplayMetrics().widthPixels;
         root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
 
-        shelfTitle = text(px(80), Color.WHITE, semibold);
+        shelfTitle = text(px(76), Color.WHITE, semibold);
         shelfTitle.setLetterSpacing(-0.02f);
         shelfTitle.setSingleLine(true);
         shelfTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         shelfTitle.setIncludeFontPadding(false);
         int textW = sw - 2 * px(MARGIN) - px(ART_W) - px(48); // up to the art
         root.addView(shelfTitle, at(px(MARGIN), px(TITLE_TOP), textW, -2));
-        shelfSub = text(px(30), 0xB3FFFFFF, regular);
+        shelfSub = text(px(29), 0xB8FFFFFF, regular);
         shelfSub.setSingleLine(true);
         shelfSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        root.addView(shelfSub, at(px(MARGIN), px(TITLE_TOP + 104), textW, -2));
+        root.addView(shelfSub, at(px(MARGIN), px(SUB_TOP), textW, -2));
 
         dock = new View(this);
         GradientDrawable glass = new GradientDrawable();
-        glass.setCornerRadius(px(44));
-        glass.setColor(0x14FFFFFF);
-        glass.setStroke(Math.max(1, px(2)), 0x1FFFFFFF);
+        glass.setCornerRadius(px(DOCK_RADIUS));
+        glass.setColor(0x1AFFFFFF);
+        glass.setStroke(Math.max(1, px(2)), 0x2EFFFFFF);
         dock.setBackground(glass);
         root.addView(dock, at(0, 0, 0, 0)); // placed by buildTiles
 
-        // A small clock at the top right, like Apple TV; the network and shortcut icons sit left of it.
+        // Only a clock at the top right, like Apple TV. Bluetooth, sound and picture live in Control Center;
+        // a network icon shows left of the clock only while the TV is offline.
         clockView = clock("h:mm", "H:mm", px(CLOCK_SIZE), Color.WHITE, semibold);
         clockView.setFontFeatureSettings("tnum");
         clockView.setIncludeFontPadding(false);
-        clockView.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
-        cp.topMargin = px(ICON_TOP);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        cp.topMargin = px(CLOCK_TOP);
         cp.rightMargin = px(MARGIN);
         root.addView(clockView, cp);
 
@@ -360,11 +360,8 @@ public class MainActivity extends Activity {
         if (dirty) {
             dirty = false;
             buildTiles();
-        } else if (movingKey == null) {
-            // Coming back from an app: it's the most recent one now.
-            root.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
-            buildRecents();
-            root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        } else {
+            refreshRecents(); // coming back from an app: it's the most recent one now
         }
         refreshNetwork();
         // Like Apple TV, Home comes back on the app you just left, and the shelf says when that was.
@@ -380,43 +377,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    // The small row under the shelf's name: the apps used last, newest first, from Android's usage
-    // stats (allowed with: adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow). Without that
-    // permission the list is empty and the row isn't there.
-    private void buildRecents() {
-        for (java.util.Iterator<View> it = tiles.iterator(); it.hasNext(); ) {
-            View t = it.next();
-            if (!((String) t.getTag()).startsWith(RECENT)) continue;
-            View wrap = (View) t.getParent();
-            ((ViewGroup) wrap.getParent()).removeView(wrap);
-            it.remove();
-        }
-        List<String> recent = recentApps();
-        mostRecent = recent.isEmpty() ? null : recent.get(0);
-        PackageManager pm = getPackageManager();
-        int w = px(RECENT_W), h = px(RECENT_H), x = px(MARGIN);
-        for (String pkg : recent) {
-            Drawable banner = bannerOf(pm, pkg), icon = null;
-            if (banner == null) try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
-            addTile(root, RECENT + pkg, labelOf(pkg), banner, null, icon, x, px(RECENT_TOP), w, h);
-            x += w + px(RECENT_GAP);
-        }
-    }
-
-    private List<String> recentApps() {
+    // When each app was last open, and which one was last, from Android's usage stats (allowed with:
+    // adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow). Without that permission nothing is
+    // known, and the shelf just shows the app's name.
+    private void refreshRecents() {
         lastUsed.clear();
-        List<String> out = new ArrayList<>();
+        mostRecent = null;
         android.app.usage.UsageStatsManager um =
                 (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        if (um == null) return out;
+        if (um == null) return;
         long now = System.currentTimeMillis();
         List<android.app.usage.UsageStats> stats;
         try {
             stats = um.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_BEST, now - 14L * 24 * 3600 * 1000, now);
         } catch (Exception e) {
-            return out;
+            return;
         }
-        if (stats == null) return out;
+        if (stats == null) return;
         PackageManager pm = getPackageManager();
         for (android.app.usage.UsageStats s : stats) {
             String p = s.getPackageName();
@@ -426,40 +403,29 @@ public class MainActivity extends Activity {
             if (had != null && had >= t) continue;
             if (had == null && launchIntent(pm, p) == null) continue;
             lastUsed.put(p, t);
+            if (mostRecent == null || t > lastUsed.get(mostRecent)) mostRecent = p;
         }
-        out.addAll(lastUsed.keySet());
-        Collections.sort(out, (a, b) -> Long.compare(lastUsed.get(b), lastUsed.get(a)));
-        return new ArrayList<>(out.subList(0, Math.min(RECENTS, out.size())));
     }
 
-    // What the shelf says under a tile's name: when an app was last used ("Continue watching" for the
-    // last one), what an input or Settings is, or nothing.
+    // What the shelf says under a tile's name: when an app was last open, what an input or Settings
+    // is, or nothing. Only "last opened", never "continue watching": the home screen can't see what
+    // was playing in the app.
     private String subFor(String key) {
         if (isInput(key)) return Strings.t("HDMI input");
         if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
-        String pkg = key.startsWith(RECENT) ? key.substring(RECENT.length()) : LIVE.equals(key) ? livePackage() : key;
+        String pkg = LIVE.equals(key) ? livePackage() : key;
         Long t = pkg == null ? null : lastUsed.get(pkg);
         if (t == null) return "";
         long now = System.currentTimeMillis();
         // Android says "0 minutes ago" for the last minute.
         CharSequence ago = now - t < 60_000 ? Strings.t("just now")
                 : android.text.format.DateUtils.getRelativeTimeSpanString(t, now, android.text.format.DateUtils.MINUTE_IN_MILLIS);
-        return Strings.t(pkg.equals(mostRecent) ? "Continue watching" : "Last used") + "  ·  " + ago;
+        return Strings.t("Last opened") + "  ·  " + ago;
     }
 
     private String livePackage() {
         Intent i = liveTvIntent();
         return i == null || i.getComponent() == null ? null : i.getComponent().getPackageName();
-    }
-
-    private static Drawable bannerOf(PackageManager pm, String pkg) {
-        try {
-            Intent li = launchIntent(pm, pkg);
-            Drawable b = li == null ? null : pm.getActivityBanner(li);
-            return b != null ? b : pm.getApplicationBanner(pkg);
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     // Back from a menu or a window on top (like the uninstall prompt): catch up on apps that changed.
@@ -598,25 +564,23 @@ public class MainActivity extends Activity {
         moveHint.setVisibility(View.GONE);
 
         PackageManager pm = getPackageManager();
-        int m = px(MARGIN), g = px(GAP);
-        int w = (getResources().getDisplayMetrics().widthPixels - 2 * m - g * (PER_ROW - 1)) / PER_ROW;
-        int h = w * 9 / 16;
+        int w = px(TILE_W), h = px(TILE_H);
         tileW = w;
         tileH = h;
 
         List<String> apps = appList(pm);
-        // Apps fill rows of six under the top shelf. More rows don't push into the shelf: the page
-        // scrolls instead, and the shelf goes up with it, as on Apple TV.
+        // Apps fill rows of six under the top shelf, the inputs come as pills under them, all on the
+        // glass dock. More rows don't push into the shelf: the page scrolls instead, as on Apple TV.
         int launchable = 0;
         for (String pkg : apps) if (launchIntent(pm, pkg) != null) launchable++;
         int rows = Math.max(1, (launchable + PER_ROW - 1) / PER_ROW);
         gridTop = px(ROW1_TOP);
-        int bottomTop = gridTop + rows * px(ROW_STEP);
-        ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = gridTop - px(DOCK_PAD) - px(48);
-        int dp = px(DOCK_PAD), ds = px(DOCK_SIDE);
-        root.setMinimumHeight(bottomTop + h + dp + ds);
-        dock.setLayoutParams(at(ds, gridTop - dp, getResources().getDisplayMetrics().widthPixels - 2 * ds,
-                bottomTop + h - gridTop + 2 * dp));
+        int pillTop = gridTop + (rows - 1) * px(ROW_STEP) + h + px(PILL_ROOM);
+        int dockBottom = pillTop + px(PILL_H) + px(DOCK_PAD);
+        ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = px(DOCK_TOP) - px(48);
+        root.setMinimumHeight(dockBottom + px(76)); // as far from the bottom as one row leaves it
+        dock.setLayoutParams(at(px(DOCK_X), px(DOCK_TOP), getResources().getDisplayMetrics().widthPixels - 2 * px(DOCK_X),
+                dockBottom - px(DOCK_TOP)));
 
         for (String pkg : apps) {
             Intent li = launchIntent(pm, pkg);
@@ -636,40 +600,28 @@ public class MainActivity extends Activity {
             addTile(root, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
         }
 
-        // Bottom row: Live TV (or the Play Store on a TV without it), HDMI inputs, Settings and Add app,
-        // six at most. The Play Store is still in the app list and can go on the top row.
-        int col = 0;
+        // Under the apps, as small glass pills so they weigh less than the apps: Live TV (or the Play
+        // Store on a TV without it), the HDMI inputs, Settings and Add app.
+        int x = px(TILE_LEFT);
         boolean live = liveTvIntent() != null;
         boolean store = !live && !apps.contains(PLAY_STORE) && launchIntent(pm, PLAY_STORE) != null;
-        List<TvInputInfo> inputs = hdmiInputs();
-        int room = PER_ROW - 2 - (live || store ? 1 : 0);
-        if (inputs.size() > room) inputs = inputs.subList(0, room);
-        if (live)
-            addTile(root, LIVE, Strings.t("Live TV"), null, LineIcon.LIVE, null, m + col++ * (w + g), bottomTop, w, h);
-        if (store)
-            addTile(root, PLAY_STORE, "Play Store", null, LineIcon.PLAY, null, m + col++ * (w + g), bottomTop, w, h);
-        for (TvInputInfo in : inputs)
-            addTile(root, in.getId(), inputLabel(in), null, LineIcon.HDMI, null, m + col++ * (w + g), bottomTop, w, h);
-        addTile(root, SETTINGS, Strings.t("Settings"), null, LineIcon.SETTINGS, null, m + col++ * (w + g), bottomTop, w, h);
-        addTile(root, ADD, Strings.t("Add app"), null, LineIcon.PLUS, null, m + col * (w + g), bottomTop, w, h);
+        if (live) x += addPill(LIVE, Strings.t("Live TV"), LineIcon.LIVE, x, pillTop) + px(PILL_GAP);
+        if (store) x += addPill(PLAY_STORE, "Play Store", LineIcon.PLAY, x, pillTop) + px(PILL_GAP);
+        for (TvInputInfo in : hdmiInputs())
+            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop) + px(PILL_GAP);
+        x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop) + px(PILL_GAP);
+        addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop);
 
-        // Plain icons at the top right, level with the date: any settings shortcuts picked, then the
-        // network icon. Added last, so the first app keeps first focus; Up from the apps reaches them.
-        List<Integer> quick = quickList();
+        // A network icon left of the clock, only seen while the TV is offline (see refreshNetwork).
+        // Added last, so the first app keeps first focus.
         int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
-        // The icons end just left of the clock (their focus circles stick out a little past the icons).
         int clockW = Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig;
-        int qx = getResources().getDisplayMetrics().widthPixels - m - clockW + (ib - px(ICON_SIZE)) / 2
-                - (quick.size() + 1) * ib - quick.size() * ig;
-        for (int q : quick) {
-            addIcon(QUICK + QUICK_NAMES[q], Strings.t(QUICK_LABELS[q]), new LineIcon(QUICK_ICONS[q]), qx);
-            qx += ib + ig;
-        }
+        int qx = getResources().getDisplayMetrics().widthPixels - px(MARGIN) - clockW - ib;
         netIcon = addIcon(NETWORK, Strings.t("Network"), null, qx);
         netState = -1;
         refreshNetwork();
 
-        buildRecents();
+        refreshRecents();
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
         // An app that was uninstalled hands focus to the one now in its place, as Remove does.
         if (wantAt >= 0 && !rowApps.contains(want))
@@ -738,8 +690,8 @@ public class MainActivity extends Activity {
 
         final Drawable art = banner != null ? banner : appIcon;
 
-        // Banner tiles show their name underneath when focused; the small recent tiles have no room.
-        final TextView caption = banner == null || key.startsWith(RECENT) ? null : text(px(24), Color.WHITE, regular);
+        // Banner tiles show their name underneath when focused.
+        final TextView caption = banner == null ? null : text(px(25), Color.WHITE, semibold);
         if (caption != null) {
             caption.setText(label);
             caption.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -823,6 +775,55 @@ public class MainActivity extends Activity {
     }
 
     // An icon on its own, no tile or label: a glass circle shows behind it only while it's focused.
+    // An input or system shortcut under the apps: a glass pill with a line icon and its name, white
+    // when focused, like tvOS buttons. Returns its width, so the next one can follow.
+    private int addPill(final String key, final String label, int[] lineIcon, int x, int y) {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setPadding(px(PILL_PAD), 0, px(PILL_PAD), 0);
+        final GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(px(PILL_H) / 2f);
+        bg.setColor(0x24FFFFFF);
+        bg.setStroke(Math.max(1, px(2)), 0x2EFFFFFF);
+        pill.setBackground(bg);
+        final ImageView iv = new ImageView(this);
+        iv.setImageDrawable(new LineIcon(lineIcon));
+        pill.addView(iv, new LinearLayout.LayoutParams(px(PILL_ICON), px(PILL_ICON)));
+        final TextView t = text(px(25), Color.WHITE, semibold);
+        t.setText(label);
+        t.setSingleLine(true);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2);
+        tl.leftMargin = px(12);
+        pill.addView(t, tl);
+        int w = 2 * px(PILL_PAD) + px(PILL_ICON) + px(12) + Math.round(t.getPaint().measureText(label)) + 1;
+
+        pill.setFocusable(true);
+        pill.setTag(key);
+        pill.setContentDescription(label);
+        pill.setOnFocusChangeListener((v, has) -> {
+            if (has) {
+                focusedKey = key;
+                showOnShelf(key, label, subFor(key), null);
+            }
+            bg.setColor(has ? Color.WHITE : 0x24FFFFFF);
+            bg.setStroke(Math.max(1, px(2)), has ? Color.WHITE : 0x2EFFFFFF);
+            t.setTextColor(has ? 0xFF111318 : Color.WHITE);
+            if (has) iv.setColorFilter(new PorterDuffColorFilter(0xFF111318, PorterDuff.Mode.SRC_IN));
+            else iv.clearColorFilter();
+            v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(150)
+                    .setInterpolator(new DecelerateInterpolator()).withLayer().start();
+        });
+        pill.setOnClickListener(v -> open(key));
+
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setClipChildren(false);
+        wrap.addView(pill, new FrameLayout.LayoutParams(w, px(PILL_H)));
+        root.addView(wrap, at(x, y, w, px(PILL_H)));
+        tiles.add(pill);
+        return w;
+    }
+
     private ImageView addIcon(final String key, String label, Drawable icon, int x) {
         int b = px(ICON_BUTTON), size = px(ICON_SIZE);
         FrameLayout card = new FrameLayout(this);
@@ -880,7 +881,7 @@ public class MainActivity extends Activity {
             openQuick(key.substring(QUICK.length()));
             return;
         } else {
-            i = launchIntent(getPackageManager(), key.startsWith(RECENT) ? key.substring(RECENT.length()) : key);
+            i = launchIntent(getPackageManager(), key);
             if (i == null) return;
         }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -963,6 +964,9 @@ public class MainActivity extends Activity {
         int state = networkState();
         if (state == netState) return;
         netState = state;
+        // Only the clock stays at the top right, like Apple TV: the icon (and its focus stop) is there
+        // only while something's wrong.
+        ((View) netIcon.getParent().getParent()).setVisibility(state == OFFLINE ? View.VISIBLE : View.GONE);
         if (state == ETHERNET) {
             netIcon.setImageDrawable(new LineIcon(LineIcon.ETHERNET));
         } else {
@@ -1347,7 +1351,7 @@ public class MainActivity extends Activity {
 
     // Where app number i sits in the grid.
     private int gridX(int i) {
-        return px(MARGIN) + (i % PER_ROW) * (tileW + px(GAP));
+        return px(TILE_LEFT) + (i % PER_ROW) * (tileW + px(GAP));
     }
 
     private int gridY(int i) {
@@ -1507,17 +1511,25 @@ public class MainActivity extends Activity {
             float fy = (float) y / (h - 1);
             float alpha = 0.85f * (fy < 0.45f ? 1f : smooth(1f - (fy - 0.45f) / 0.55f));
             for (int x = 0; x < w; x++) {
-                float light = 0.35f + 0.65f * smooth(Math.min(1f, (float) x / (w * 0.6f)));
+                // At most 45% brightness, a bit more colour: a white banner (YouTube, Netflix) would
+                // otherwise turn the shelf light grey behind the white name and clock.
+                float light = 0.45f * (0.7f + 0.3f * smooth(Math.min(1f, (float) x / (w * 0.6f))));
                 int c = px[y * w + x];
-                int r = Math.round(((c >> 16) & 0xFF) * light), g = Math.round(((c >> 8) & 0xFF) * light);
-                int bl = Math.round((c & 0xFF) * light), a = Math.round((c >>> 24) * alpha);
-                px[y * w + x] = a << 24 | r << 16 | g << 8 | bl;
+                float r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
+                float lum = 0.299f * r + 0.587f * g + 0.114f * bl;
+                r = lum + (r - lum) * 1.25f; g = lum + (g - lum) * 1.25f; bl = lum + (bl - lum) * 1.25f;
+                int a = Math.round((c >>> 24) * alpha);
+                px[y * w + x] = a << 24 | clamp(r * light) << 16 | clamp(g * light) << 8 | clamp(bl * light);
             }
         }
         b.setPixels(px, 0, w, 0, 0, w, h);
         BitmapDrawable out = new BitmapDrawable(getResources(), b);
         out.setFilterBitmap(true);
         return out;
+    }
+
+    private static int clamp(float v) {
+        return Math.max(0, Math.min(255, Math.round(v)));
     }
 
     private static float smooth(float t) {
