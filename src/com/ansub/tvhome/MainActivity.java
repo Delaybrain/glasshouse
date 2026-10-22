@@ -13,12 +13,17 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
@@ -37,6 +42,8 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -88,10 +95,13 @@ public class MainActivity extends Activity {
     private static final String TCL_SHOW_WINDOW = "com.tcl.settings.SHOW_WINDOW";
 
     // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px().
-    private static final int MARGIN = 96, GAP = 36, RADIUS = 22;
+    private static final int MARGIN = 96, GAP = 36, RADIUS = 28;
     private static final int ROW1_TOP = 604, ROW_STEP = 224;
-    private static final int GRID_MIN_TOP = 400; // more rows push the grid up, but not into the clock
-    private static final int ICON_TOP = 76, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the date
+    private static final int ICON_TOP = 64, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
+    // tvOS look: the top shelf shows the focused app big, blurred, with its name; the apps sit on a
+    // glass dock below it. More rows than fit scroll the shelf away, like Apple TV.
+    private static final int SHELF_H = 560, TITLE_TOP = 318, DOCK_PAD = 40, CLOCK_SIZE = 40;
+    private static final float FOCUS_SCALE = 1.12f;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
     private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Brightness", "TV settings"};
@@ -125,6 +135,12 @@ public class MainActivity extends Activity {
     private static Typeface regular, semibold;
 
     private FrameLayout root; // the page, inside a vertical scroller
+    private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
+    private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
+    private TextView shelfTitle, shelfSub;
+    private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
+    private View dock;            // the glass panel the tiles sit on
+    private TextClock clockView;
     private int tileW, tileH, gridTop; // app grid geometry, set by buildTiles
     private final List<View> tiles = new ArrayList<>();
     private boolean dirty = true;
@@ -176,23 +192,48 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setClipChildren(false);
         scroller.addView(root, new FrameLayout.LayoutParams(-1, -2));
-
-        LinearLayout clock = new LinearLayout(this);
-        clock.setOrientation(LinearLayout.VERTICAL);
         shownLocale = java.util.Locale.getDefault();
-        String day = Strings.datePattern();
-        TextClock date = clock(day, day, px(30), 0xA8FFFFFF, regular);
-        TextClock time = clock("h:mm", "H:mm", px(176), Color.WHITE, semibold);
-        time.setLetterSpacing(-0.028f);
-        time.setFontFeatureSettings("tnum");
-        time.setIncludeFontPadding(false);
-        // Wrap, not the default match_parent: the column must be as wide as the date, not just the time,
-        // or "0:00" to "9:59" (one digit less) cuts a long date off.
-        clock.addView(date, new LinearLayout.LayoutParams(-2, -2));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-2, -2);
-        tp.topMargin = px(-20); // pull the big digits up under the date
-        clock.addView(time, tp);
-        root.addView(clock, at(px(MARGIN), px(92), -2, -2));
+
+        // Top shelf, back to front: art, scrim, then the name.
+        shelf = new ImageView(this);
+        shelf.setScaleType(ImageView.ScaleType.FIT_XY);
+        shelf.setAlpha(0.9f);
+        if (android.os.Build.VERSION.SDK_INT >= 31)
+            shelf.setRenderEffect(RenderEffect.createBlurEffect(px(36), px(36), Shader.TileMode.CLAMP));
+        root.addView(shelf, at(0, 0, -1, px(SHELF_H)));
+        shelfScrim = new View(this);
+        root.addView(shelfScrim, at(0, 0, -1, px(SHELF_H)));
+        updateScrim(WALLPAPERS[wallpaper()]);
+
+        shelfTitle = text(px(80), Color.WHITE, semibold);
+        shelfTitle.setLetterSpacing(-0.02f);
+        shelfTitle.setSingleLine(true);
+        shelfTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        shelfTitle.setIncludeFontPadding(false);
+        int textW = getResources().getDisplayMetrics().widthPixels * 2 / 3;
+        root.addView(shelfTitle, at(px(MARGIN), px(TITLE_TOP), textW, -2));
+        shelfSub = text(px(30), 0xB3FFFFFF, regular);
+        shelfSub.setSingleLine(true);
+        shelfSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        root.addView(shelfSub, at(px(MARGIN), px(TITLE_TOP + 104), textW, -2));
+
+        dock = new View(this);
+        GradientDrawable glass = new GradientDrawable();
+        glass.setCornerRadius(px(44));
+        glass.setColor(0x14FFFFFF);
+        glass.setStroke(Math.max(1, px(2)), 0x1FFFFFFF);
+        dock.setBackground(glass);
+        root.addView(dock, at(0, 0, 0, 0)); // placed by buildTiles
+
+        // A small clock at the top right, like Apple TV; the network and shortcut icons sit left of it.
+        clockView = clock("h:mm", "H:mm", px(CLOCK_SIZE), Color.WHITE, semibold);
+        clockView.setFontFeatureSettings("tnum");
+        clockView.setIncludeFontPadding(false);
+        clockView.setGravity(Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
+        cp.topMargin = px(ICON_TOP);
+        cp.rightMargin = px(MARGIN);
+        root.addView(clockView, cp);
 
         moveHint = text(px(24), 0xA8FFFFFF, regular);
         moveHint.setText(Strings.t("Use the arrows to move it, then press OK"));
@@ -329,14 +370,54 @@ public class MainActivity extends Activity {
         return new LayerDrawable(new Drawable[] {base, top, bottom});
     }
 
-    // The saved wallpaper, as an index into WALLPAPERS (Dusk if none is saved).
+    // The saved wallpaper, as an index into WALLPAPERS (Graphite, the most Apple-like, if none is saved).
     private int wallpaper() {
         String saved = getSharedPreferences(PREFS, 0).getString("wallpaper", null);
-        return Math.max(0, Arrays.asList(WALLPAPER_NAMES).indexOf(saved));
+        int i = Arrays.asList(WALLPAPER_NAMES).indexOf(saved);
+        return i >= 0 ? i : Arrays.asList(WALLPAPER_NAMES).indexOf("Graphite");
     }
 
     private void showWallpaper(int i) {
         getWindow().setBackgroundDrawable(background(WALLPAPERS[i]));
+        updateScrim(WALLPAPERS[i]);
+    }
+
+    // Dark on the left so the name reads on any art, and fading into the wallpaper's middle colour at
+    // the bottom, so the shelf has no hard edge above the dock.
+    private void updateScrim(int[] c) {
+        if (shelfScrim == null) return;
+        GradientDrawable side = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0xB3000000, 0x40000000, 0x00000000});
+        GradientDrawable fade = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0x66000000, 0x00000000, c[1] & 0x00FFFFFF, c[1]});
+        side.setDither(true);
+        fade.setDither(true);
+        shelfScrim.setBackground(new LayerDrawable(new Drawable[] {side, fade}));
+    }
+
+    // Shows a tile on the top shelf: its art, blurred, and its name. Inputs and settings have no art,
+    // so the shelf clears to the wallpaper. The old art cross-fades out.
+    private void showOnShelf(String key, String title, String sub, Drawable art) {
+        if (shelf == null || key.equals(shelfKey)) return;
+        shelfKey = key;
+        Drawable next = art == null ? new ColorDrawable(Color.TRANSPARENT) : fit(art, px(160), px(48));
+        Drawable prev = shelf.getDrawable();
+        if (prev instanceof TransitionDrawable) prev = ((TransitionDrawable) prev).getDrawable(1);
+        if (prev == null) prev = new ColorDrawable(Color.TRANSPARENT);
+        TransitionDrawable fade = new TransitionDrawable(new Drawable[] {prev, next});
+        fade.setCrossFadeEnabled(true);
+        shelf.setImageDrawable(fade);
+        fade.startTransition(320);
+
+        shelfTitle.setText(title);
+        shelfSub.setText(sub);
+        shelfSub.setVisibility(sub.isEmpty() ? View.GONE : View.VISIBLE);
+        for (View v : new View[] {shelfTitle, shelfSub}) {
+            v.setAlpha(0f);
+            v.setTranslationX(px(-16));
+            v.animate().alpha(1f).translationX(0).setDuration(260)
+                    .setInterpolator(new DecelerateInterpolator()).start();
+        }
     }
 
     // The wallpapers, each with a small dot of its colours. Moving through the list shows each one
@@ -398,15 +479,18 @@ public class MainActivity extends Activity {
         tileH = h;
 
         List<String> apps = appList(pm);
-        // Apps fill rows of six. With more rows the grid starts higher, so up to two rows of apps and
-        // the bottom row still fit on screen; past that the page scrolls.
+        // Apps fill rows of six under the top shelf. More rows don't push into the shelf: the page
+        // scrolls instead, and the shelf goes up with it, as on Apple TV.
         int launchable = 0;
         for (String pkg : apps) if (launchIntent(pm, pkg) != null) launchable++;
         int rows = Math.max(1, (launchable + PER_ROW - 1) / PER_ROW);
-        gridTop = Math.max(px(GRID_MIN_TOP), px(ROW1_TOP) - (rows - 1) * px(ROW_STEP));
+        gridTop = px(ROW1_TOP);
         int bottomTop = gridTop + rows * px(ROW_STEP);
-        ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = gridTop - px(64);
+        ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = gridTop - px(DOCK_PAD) - px(48);
         root.setMinimumHeight(bottomTop + h + px(MARGIN));
+        int dp = px(DOCK_PAD);
+        dock.setLayoutParams(at(m - dp, gridTop - dp, getResources().getDisplayMetrics().widthPixels - 2 * (m - dp),
+                bottomTop + h - gridTop + 2 * dp));
 
         for (String pkg : apps) {
             Intent li = launchIntent(pm, pkg);
@@ -443,8 +527,9 @@ public class MainActivity extends Activity {
         // network icon. Added last, so the first app keeps first focus; Up from the apps reaches them.
         List<Integer> quick = quickList();
         int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
-        // The last icon's right edge lines up with the apps' (its focus circle sticks out past them).
-        int qx = getResources().getDisplayMetrics().widthPixels - m + (ib - px(ICON_SIZE)) / 2
+        // The icons end just left of the clock (their focus circles stick out a little past the icons).
+        int clockW = Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig;
+        int qx = getResources().getDisplayMetrics().widthPixels - m - clockW + (ib - px(ICON_SIZE)) / 2
                 - (quick.size() + 1) * ib - quick.size() * ig;
         for (int q : quick) {
             addIcon(QUICK + QUICK_NAMES[q], Strings.t(QUICK_LABELS[q]), new LineIcon(QUICK_ICONS[q]), qx);
@@ -468,38 +553,58 @@ public class MainActivity extends Activity {
         FrameLayout card = new FrameLayout(this);
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
+        final TextView name; // glass tiles only: label and line icon turn dark on the white focus
+        final LineIcon line = lineIcon != null ? new LineIcon(lineIcon) : null;
         if (banner != null) {
+            name = null;
             bg.setColor(0xFF1E1A1C);
             ImageView iv = new ImageView(this);
             iv.setImageDrawable(fit(banner, w, h));
             card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
         } else {
-            // Quiet "glass" tile: icon above label.
-            bg.setColor(0x13FFFFFF);
-            bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
+            // Frosted "glass" tile: icon above label. Focused, it turns white like tvOS buttons.
+            bg.setColor(0x1AFFFFFF);
+            bg.setStroke(Math.max(1, px(2)), 0x1FFFFFFF);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
             inner.setGravity(Gravity.CENTER);
             ImageView iv = new ImageView(this);
             int size = lineIcon != null ? px(44) : px(64);
-            if (lineIcon != null) iv.setImageDrawable(new LineIcon(lineIcon));
+            if (line != null) iv.setImageDrawable(line);
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
-            TextView t = text(px(24), 0xE0FFFFFF, regular);
-            t.setText(label);
-            t.setSingleLine(true);
-            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(px(16), 0, px(16), 0);
+            name = text(px(24), 0xE6FFFFFF, semibold);
+            name.setText(label);
+            name.setSingleLine(true);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            name.setGravity(Gravity.CENTER);
+            name.setPadding(px(16), 0, px(16), 0);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
             lp.topMargin = px(12);
-            inner.addView(t, lp);
+            inner.addView(name, lp);
             card.addView(inner, new FrameLayout.LayoutParams(-1, -1));
         }
+        // Light catching the glass: a soft gloss on the top half, and a sheen that sweeps across once
+        // when the tile gets focus. Both are clipped to the tile's rounded corners.
+        final View gloss = new View(this);
+        gloss.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0x38FFFFFF, 0x0AFFFFFF, 0x00FFFFFF}));
+        gloss.setAlpha(0f);
+        card.addView(gloss, new FrameLayout.LayoutParams(-1, h / 2));
+        final View sheen = new View(this);
+        sheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0x00FFFFFF, 0x2EFFFFFF, 0x00FFFFFF}));
+        sheen.setRotation(18f);
+        sheen.setVisibility(View.INVISIBLE);
+        card.addView(sheen, new FrameLayout.LayoutParams(w / 3, h * 2, Gravity.CENTER_VERTICAL));
         card.setBackground(bg);
         card.setClipToOutline(true);
         card.setFocusable(true);
         card.setTag(key);
+
+        final String sub = isInput(key) ? Strings.t("HDMI input")
+                : SETTINGS.equals(key) ? android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS)) : "";
+        final Drawable art = banner != null ? banner : appIcon;
 
         // Banner tiles show their name underneath when focused.
         final TextView caption = banner == null ? null : text(px(24), Color.WHITE, regular);
@@ -511,10 +616,31 @@ public class MainActivity extends Activity {
 
         final boolean glass = banner == null;
         card.setOnFocusChangeListener((v, has) -> {
-            if (has) focusedKey = key;
-            if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
-            v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f).translationZ(has ? px(26) : 0)
-                    .setDuration(140).withLayer().start();
+            if (has) {
+                focusedKey = key;
+                showOnShelf(key, label, sub, art);
+            }
+            if (glass) {
+                bg.setColor(has ? 0xF2FFFFFF : 0x1AFFFFFF);
+                if (name != null) name.setTextColor(has ? 0xFF1C1C1E : 0xE6FFFFFF);
+                if (line != null) line.setColorFilter(has ? new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN) : null);
+            }
+            // Lift with a little spring, settle back gently: the tvOS focus feel.
+            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
+                    .translationZ(has ? px(30) : 0).setDuration(has ? 260 : 180)
+                    .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
+                    .withLayer().start();
+            gloss.animate().alpha(has ? 1f : 0f).setDuration(200).start();
+            sheen.animate().cancel();
+            if (has) {
+                sheen.setVisibility(View.VISIBLE);
+                sheen.setTranslationX(-w / 2f);
+                sheen.animate().translationX(w * 1.2f).setDuration(700).setStartDelay(80)
+                        .setInterpolator(new DecelerateInterpolator())
+                        .withEndAction(() -> sheen.setVisibility(View.INVISIBLE)).start();
+            } else {
+                sheen.setVisibility(View.INVISIBLE);
+            }
             if (caption != null) caption.setVisibility(has ? View.VISIBLE : View.INVISIBLE);
         });
         final boolean editable = rowApps.contains(key);
@@ -577,8 +703,13 @@ public class MainActivity extends Activity {
         card.setContentDescription(label);
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
-            bg.setColor(has ? 0x38FFFFFF : Color.TRANSPARENT);
-            v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f).setDuration(140).withLayer().start();
+            bg.setColor(has ? 0xF2FFFFFF : Color.TRANSPARENT);
+            // On the view, not the drawable: the network icon swaps its drawable as the signal changes.
+            if (has) iv.setColorFilter(new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN));
+            else iv.clearColorFilter();
+            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).setDuration(has ? 220 : 160)
+                    .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
+                    .withLayer().start();
         });
         card.setOnClickListener(v -> open(key));
         FrameLayout wrap = new FrameLayout(this);
@@ -975,6 +1106,12 @@ public class MainActivity extends Activity {
             focusedKey = pkgs.get(which);
             buildTiles();
         });
+    }
+
+    private static String[] translated(String[] en) {
+        String[] out = new String[en.length];
+        for (int i = 0; i < en.length; i++) out[i] = Strings.t(en[i]);
+        return out;
     }
 
     private String labelOf(String pkg) {
