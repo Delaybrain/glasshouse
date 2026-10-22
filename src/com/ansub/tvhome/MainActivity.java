@@ -15,8 +15,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
@@ -198,11 +196,13 @@ public class MainActivity extends Activity {
         shelf = new ImageView(this);
         shelf.setScaleType(ImageView.ScaleType.FIT_XY);
         shelf.setAlpha(0.9f);
-        if (android.os.Build.VERSION.SDK_INT >= 31)
-            shelf.setRenderEffect(RenderEffect.createBlurEffect(px(36), px(36), Shader.TileMode.CLAMP));
-        root.addView(shelf, at(0, 0, -1, px(SHELF_H)));
+        // The art is blurred in its small bitmap (see blurred), not with RenderEffect: that one draws past
+        // the view's edges, as a band under the shelf.
+        FrameLayout shelfFrame = new FrameLayout(this);
+        shelfFrame.addView(shelf, new FrameLayout.LayoutParams(-1, -1));
         shelfScrim = new View(this);
-        root.addView(shelfScrim, at(0, 0, -1, px(SHELF_H)));
+        shelfFrame.addView(shelfScrim, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(shelfFrame, at(0, 0, -1, px(SHELF_H)));
         updateScrim(WALLPAPERS[wallpaper()]);
 
         shelfTitle = text(px(80), Color.WHITE, semibold);
@@ -410,7 +410,7 @@ public class MainActivity extends Activity {
     private void showOnShelf(String key, String title, String sub, Drawable art) {
         if (shelf == null || key.equals(shelfKey)) return;
         shelfKey = key;
-        Drawable next = art == null ? new ColorDrawable(Color.TRANSPARENT) : fit(art, px(160), px(48));
+        Drawable next = art == null ? new ColorDrawable(Color.TRANSPARENT) : blurred(fit(art, 120, 35));
         Drawable prev = shelf.getDrawable();
         if (prev instanceof TransitionDrawable) prev = ((TransitionDrawable) prev).getDrawable(1);
         if (prev == null) prev = new ColorDrawable(Color.TRANSPARENT);
@@ -1322,6 +1322,49 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {
             return d;
         }
+    }
+
+    // Blurs a small bitmap in place with three box blurs (close to a Gaussian). At 120x35 pixels it takes
+    // well under a millisecond, and stretched to the shelf it reads as a soft wash of the app's art.
+    private Drawable blurred(Drawable d) {
+        if (!(d instanceof BitmapDrawable)) return d;
+        Bitmap b = ((BitmapDrawable) d).getBitmap();
+        int w = b.getWidth(), h = b.getHeight();
+        int[] px = new int[w * h], tmp = new int[w * h];
+        b.getPixels(px, 0, w, 0, 0, w, h);
+        for (int pass = 0; pass < 3; pass++) {
+            boxBlur(px, tmp, w, h, 4, true);
+            boxBlur(tmp, px, w, h, 4, false);
+        }
+        b.setPixels(px, 0, w, 0, 0, w, h);
+        BitmapDrawable out = new BitmapDrawable(getResources(), b);
+        out.setFilterBitmap(true);
+        return out;
+    }
+
+    // One box blur along rows (or columns), edges clamped, channel by channel.
+    private static void boxBlur(int[] in, int[] out, int w, int h, int r, boolean rows) {
+        int lines = rows ? h : w, len = rows ? w : h, n = 2 * r + 1;
+        for (int l = 0; l < lines; l++) {
+            int a = 0, rd = 0, g = 0, bl = 0;
+            for (int i = -r; i <= r; i++) {
+                int c = in[idx(l, Math.max(0, Math.min(len - 1, i)), w, rows)];
+                a += c >>> 24; rd += (c >> 16) & 0xFF; g += (c >> 8) & 0xFF; bl += c & 0xFF;
+            }
+            for (int i = 0; i < len; i++) {
+                out[idx(l, i, w, rows)] = (a / n) << 24 | (rd / n) << 16 | (g / n) << 8 | (bl / n);
+                int c0 = in[idx(l, Math.max(0, i - r), w, rows)];
+                int c1 = in[idx(l, Math.min(len - 1, i + r + 1), w, rows)];
+                a += (c1 >>> 24) - (c0 >>> 24);
+                rd += ((c1 >> 16) & 0xFF) - ((c0 >> 16) & 0xFF);
+                g += ((c1 >> 8) & 0xFF) - ((c0 >> 8) & 0xFF);
+                bl += (c1 & 0xFF) - (c0 & 0xFF);
+            }
+        }
+    }
+
+    private static int idx(int line, int i, int w, boolean rows) {
+        return rows ? line * w + i : i * w + line;
     }
 
     private int px(int v) {
