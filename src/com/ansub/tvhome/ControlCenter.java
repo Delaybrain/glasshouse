@@ -90,7 +90,34 @@ public class ControlCenter extends Activity {
 
     private static final class Row {
         final String label; final int[] icon; final Runnable go;
+        TextView text; // set by row(), so a row can change its own label (the sleep row)
         Row(String label, int[] icon, Runnable go) { this.label = label; this.icon = icon; this.go = go; }
+    }
+
+    // How long the TV waits without a button press before it goes to sleep. OK steps through these and
+    // the panel stays open. Only with: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS
+    private static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 120}; // 0: never
+    private static final String SLEEP = "sleep_timeout"; // Settings.Secure, in ms, -1 for never
+
+    private int sleepMinutes() {
+        int ms = Settings.Secure.getInt(getContentResolver(), SLEEP, -1);
+        return ms <= 0 ? 0 : ms / 60000;
+    }
+
+    private String sleepLabel() {
+        int m = sleepMinutes();
+        return Strings.t("Sleep after") + ":  " + (m == 0 ? Strings.t("Off") : m + " " + Strings.t("min"));
+    }
+
+    private void nextSleep(Row r) {
+        int now = sleepMinutes(), next = SLEEP_MINUTES[0];
+        for (int m : SLEEP_MINUTES) if (m > now) { next = m; break; }
+        try {
+            Settings.Secure.putInt(getContentResolver(), SLEEP, next == 0 ? -1 : next * 60000);
+        } catch (SecurityException e) {
+            return;
+        }
+        r.text.setText(sleepLabel());
     }
 
     private List<Row> rows() {
@@ -101,6 +128,11 @@ public class ControlCenter extends Activity {
         out.add(new Row(Strings.t("Network"), LineIcon.WIFI, () -> start(new Intent(Settings.ACTION_WIFI_SETTINGS))));
         out.add(new Row(Strings.t("Picture"), LineIcon.PICTURE, () -> start(new Intent(Settings.ACTION_DISPLAY_SETTINGS))));
         out.add(new Row(Strings.t("Sound"), LineIcon.SOUND, () -> start(new Intent(Settings.ACTION_SOUND_SETTINGS))));
+        if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) {
+            final Row[] sleep = new Row[1];
+            sleep[0] = new Row(sleepLabel(), LineIcon.CLOCK, () -> nextSleep(sleep[0]));
+            out.add(sleep[0]);
+        }
         out.add(new Row(Strings.t("All settings"), LineIcon.SETTINGS, () -> start(new Intent(Settings.ACTION_SETTINGS))));
         return out;
     }
@@ -119,6 +151,7 @@ public class ControlCenter extends Activity {
         row.addView(icon, new LinearLayout.LayoutParams(px(40), px(40)));
         final TextView t = new TextView(this);
         t.setText(r.label);
+        r.text = t;
         t.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(30));
         t.setTextColor(0xE6FFFFFF);
         t.setTypeface(tf);
