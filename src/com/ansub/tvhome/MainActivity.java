@@ -813,27 +813,17 @@ public class MainActivity extends Activity {
                     else glyph.clearColorFilter();
                 }
             }
-            // Lift with a little spring, settle back gently: the tvOS focus feel. Parallax: the tile
-            // arrives tilted the way focus travelled (as if it caught the movement) and swings flat.
-            if (has) {
-                // A near camera, so the tilt shows as perspective and not just a squeeze. The TV runs
-                // animations at half length (animator scale 0.5), hence the long duration here.
-                v.setCameraDistance(getResources().getDisplayMetrics().density * 1400);
-                v.setRotationY(-moveX * 16f);
-                v.setRotationX(moveY * 12f);
-            }
-            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).rotationX(0).rotationY(0)
-                    .translationZ(has ? px(30) : 0).setDuration(has ? 700 : 180)
+            // Lift with a little spring, settle back gently: the tvOS focus feel.
+            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
+                    .translationZ(has ? px(30) : 0).setDuration(has ? 260 : 180)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
                     .withLayer().start();
             gloss.animate().alpha(has ? 1f : 0f).setDuration(200).start();
             sheen.animate().cancel();
             if (has) {
-                // The light sweeps across in the direction focus moved.
-                boolean back = moveX < 0;
                 sheen.setVisibility(View.VISIBLE);
-                sheen.setTranslationX(back ? w * 1.2f : -w / 2f);
-                sheen.animate().translationX(back ? -w / 2f : w * 1.2f).setDuration(700).setStartDelay(80)
+                sheen.setTranslationX(-w / 2f);
+                sheen.animate().translationX(w * 1.2f).setDuration(700).setStartDelay(80)
                         .setInterpolator(new DecelerateInterpolator())
                         .withEndAction(() -> sheen.setVisibility(View.INVISIBLE)).start();
             } else {
@@ -1436,23 +1426,6 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    // Which way the last arrow press went (-1, 0, 1), for the tiles' parallax tilt. Seen here before
-    // focus moves, so the tile that gets focus knows where it came from.
-    private int moveX, moveY;
-
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent ev) {
-        if (ev.getAction() == KeyEvent.ACTION_DOWN) {
-            switch (ev.getKeyCode()) {
-                case KeyEvent.KEYCODE_DPAD_LEFT: moveX = -1; moveY = 0; break;
-                case KeyEvent.KEYCODE_DPAD_RIGHT: moveX = 1; moveY = 0; break;
-                case KeyEvent.KEYCODE_DPAD_UP: moveX = 0; moveY = -1; break;
-                case KeyEvent.KEYCODE_DPAD_DOWN: moveX = 0; moveY = 1; break;
-            }
-        }
-        return super.dispatchKeyEvent(ev);
     }
 
     // Remote buttons that reach the home screen because no app is in front. The rest (Home, volume,

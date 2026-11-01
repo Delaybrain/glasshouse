@@ -30,6 +30,9 @@ final class InputPreview {
     InputPreview(Context c, Listener listener) {
         this.listener = listener;
         view = new TvView(c);
+        // Above the window, not under it: under it, the window has to be see-through where the picture
+        // is, and on this TV the home screen's background went missing while the input switched.
+        view.setZOrderMediaOverlay(true);
         view.setVisibility(View.INVISIBLE);
         view.setCallback(new TvView.TvInputCallback() {
             @Override public void onVideoAvailable(String inputId) {
@@ -53,12 +56,12 @@ final class InputPreview {
 
     // Shows this input after a moment; null (another tile focused) stops the preview.
     void preview(String inputId) {
-        handler.removeCallbacksAndMessages(null);
+        if (inputId != null && inputId.equals(pending)) return;
+        // Another input, or none: end the one running first, so the next starts from a clean session
+        // instead of the TV re-routing the running one.
+        stop();
         pending = inputId;
-        if (inputId == null) {
-            stop();
-            return;
-        }
+        if (inputId == null) return;
         handler.postDelayed(() -> {
             if (!inputId.equals(pending)) return;
             tuned = inputId;

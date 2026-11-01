@@ -39,6 +39,7 @@ public class HomeGuard extends AccessibilityService {
     protected void onServiceConnected() {
         findOtherHomes();
         running = this;
+        offTimerAt(getSharedPreferences("config", 0).getLong("offAt", 0)); // a timer set before a restart
         IntentFilter off = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(screenOff, off, RECEIVER_NOT_EXPORTED);
         else registerReceiver(screenOff, off);
@@ -47,7 +48,8 @@ public class HomeGuard extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         running = null;
-        setOffTimer(0);
+        handler.removeCallbacks(sleepNow); // the saved time stays, for when the service is back
+        handler.removeCallbacks(warn);
         try { unregisterReceiver(screenOff); } catch (Exception ignored) {}
         return super.onUnbind(intent);
     }
@@ -69,12 +71,20 @@ public class HomeGuard extends AccessibilityService {
     };
 
     void setOffTimer(int minutes) {
+        offTimerAt(minutes <= 0 ? 0 : System.currentTimeMillis() + minutes * 60_000L);
+    }
+
+    // The time is saved, so the timer outlives this service being restarted (an update of the app, or
+    // Android stopping it for a moment); onServiceConnected picks it up again.
+    private void offTimerAt(long at) {
         handler.removeCallbacks(sleepNow);
         handler.removeCallbacks(warn);
-        offAt = minutes <= 0 ? 0 : System.currentTimeMillis() + minutes * 60_000L;
+        long left = at - System.currentTimeMillis();
+        offAt = left > 0 ? at : 0;
+        getSharedPreferences("config", 0).edit().putLong("offAt", offAt).apply();
         if (offAt == 0) return;
-        handler.postDelayed(sleepNow, minutes * 60_000L);
-        handler.postDelayed(warn, minutes * 60_000L - 60_000L);
+        handler.postDelayed(sleepNow, left);
+        if (left > 60_000) handler.postDelayed(warn, left - 60_000);
     }
 
     // Minutes left, rounded up, or 0 when no timer runs.

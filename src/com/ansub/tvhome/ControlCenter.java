@@ -168,8 +168,6 @@ public class ControlCenter extends Activity {
 
     private List<Row> rows() {
         List<Row> out = new ArrayList<>();
-        final Intent live = MainActivity.liveTvIntent(this);
-        if (live != null) out.add(new Row(Strings.t("Live TV"), LineIcon.LIVE, () -> start(live)));
         out.add(new Row("Bluetooth", LineIcon.BLUETOOTH, this::openBluetooth));
         out.add(new Row(Strings.t("Network"), LineIcon.WIFI, () -> start(new Intent(Settings.ACTION_WIFI_SETTINGS))));
         out.add(new Row(Strings.t("Picture"), LineIcon.PICTURE, () -> start(new Intent(Settings.ACTION_DISPLAY_SETTINGS))));
