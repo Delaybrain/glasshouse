@@ -116,9 +116,15 @@ public class MainActivity extends Activity {
     private static final float FOCUS_SCALE = Style.SCALE_TILE;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
-    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Brightness", "TV settings"};
-    // How app banners look ("Tiles" in that menu): as the apps made them, or all on dark, or all on light.
-    private static final String[] TILE_TONES = {"Original", "Dark", "Light"};
+    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Status bar", "Brightness", "TV settings"};
+    // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
+    // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
+    private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight"};
+    private static final int TONE_ORIGINAL = 0, TONE_LIGHT = 2, TONE_GLASS = 3, TONE_MONO = 4, TONE_SPOTLIGHT = 5;
+    // What the top of the page shows ("Status bar" in that menu). Clock and network sit at the top right,
+    // the rest is one line at the top left. The off timer shows only while one is set.
+    private static final String[] STATUS_ITEMS = {"Clock", "Network", "Date", "CPU", "RAM", "Download speed", "Off timer"};
+    private static final String STATUS_DEFAULT = "Clock,Network,CPU,RAM,Off timer";
     // Android TV 11 and later (Google TV too) has no Display page, but its "Display & Sound" page holds Picture.
     private static final String[] TV_DISPLAY_SOUND = {"com.android.tv.settings",
             "com.android.tv.settings.device.displaysound.DisplaySoundActivity"};
@@ -151,6 +157,7 @@ public class MainActivity extends Activity {
     private FrameLayout root; // the page, inside a vertical scroller
     private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
     private ImageView shelfArt;   // the same art, sharp, at the right of the shelf
+    private GradientDrawable artShape; // its background: dark, or glass for the Glass look
     private InputPreview preview; // in the art's place for HDMI inputs: what's coming in
     private View wallpaperView;   // the wallpaper, behind everything but the HDMI preview
     private View dimView;         // darkens the HDMI preview's picture, so the page on top stays readable
@@ -260,9 +267,8 @@ public class MainActivity extends Activity {
 
         shelfArt = new ImageView(this);
         shelfArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        GradientDrawable artShape = new GradientDrawable();
+        artShape = new GradientDrawable();
         artShape.setCornerRadius(px(ART_RADIUS));
-        artShape.setColor(0xFF1E1A1C);
         shelfArt.setBackground(artShape);
         shelfArt.setClipToOutline(true);
         // No elevation shadow: real shadows are re-drawn every frame and this TV's GPU can't afford them.
@@ -336,6 +342,13 @@ public class MainActivity extends Activity {
         cp.topMargin = px(CLOCK_TOP);
         cp.rightMargin = px(MARGIN);
         root.addView(clockView, cp);
+
+        // The status line at the top left, level with the clock: date, CPU, RAM, ... (see updateStatus).
+        statusLine = text(px(Style.LABEL), Style.INK_2, semibold);
+        statusLine.setFontFeatureSettings("tnum");
+        statusLine.setGravity(Gravity.CENTER_VERTICAL);
+        statusLine.setSingleLine(true);
+        root.addView(statusLine, at(px(MARGIN), px(ICON_TOP), -2, px(ICON_BUTTON)));
 
         // "● LIVE · 1080p · 60 Hz", where an app's art goes, while an HDMI input's picture is behind the page.
         liveBadge = new LinearLayout(this);
@@ -504,6 +517,7 @@ public class MainActivity extends Activity {
         super.onPause();
         preview.stop();
         if (arranging && movingKey == null) stopArrange();
+        root.removeCallbacks(statusTick);
         shelfKey = null; // so the shelf (and the preview) start again on the way back
         // Kept on disk: Android may stop this app while you're away, and cameFrom() needs it on the way back.
         getSharedPreferences(PREFS, 0).edit().putLong("awayAt", System.currentTimeMillis()).apply();
@@ -513,6 +527,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         keepHomeGuardOn();
+        restartStatus();
         // Rebuild only when apps were installed, removed or updated.
         if (dirty) {
             dirty = false;
@@ -829,10 +844,18 @@ public class MainActivity extends Activity {
     private void showTiles() {
         final int size = px(40);
         panel(Strings.t("Tiles"), Arrays.asList(translated(TILE_TONES)), pos -> {
-            GradientDrawable swatch = pos == 0
-                    ? new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[] {Color.WHITE, 0xFF0B0C10})
-                    : new GradientDrawable();
-            if (pos != 0) swatch.setColor(pos == 1 ? 0xFF0B0C10 : 0xFFF2F2F2);
+            GradientDrawable swatch;
+            if (pos == TONE_ORIGINAL) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[] {0xFFE50914, Color.WHITE, 0xFF0A7BFF});
+            else if (pos == TONE_MONO) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[] {0xFFD0D0D0, 0xFF0B0C10});
+            else if (pos == TONE_SPOTLIGHT) {
+                swatch = radial(Color.WHITE, 0.5f, 0.5f, size / 2f);
+                swatch.setColors(new int[] {Color.WHITE, 0xFF0B0C10});
+            } else {
+                swatch = new GradientDrawable();
+                swatch.setColor(pos == TONE_LIGHT ? 0xFFF2F2F2 : pos == TONE_GLASS ? Style.GLASS : 0xFF0B0C10);
+            }
             swatch.setCornerRadius(px(10));
             swatch.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
             swatch.setSize(size, size);
@@ -852,7 +875,7 @@ public class MainActivity extends Activity {
     // app's own colour, so it stays. Done once per banner, at most 640x360, when the tiles are built.
     private Drawable toned(Drawable d) {
         int tone = tileTone();
-        if (d == null || tone == 0) return d;
+        if (d == null || tone == TONE_ORIGINAL) return d;
         int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
         if (iw <= 0 || ih <= 0) return d;
         float s = Math.min(1f, Math.min(640f / iw, 360f / ih));
@@ -884,20 +907,54 @@ public class MainActivity extends Activity {
             bg[ch] = v[n / 2];
         }
         int max = Math.max(bg[0], Math.max(bg[1], bg[2])), min = Math.min(bg[0], Math.min(bg[1], bg[2]));
-        boolean light = max + min > 255;
-        if (max - min > 40 || light != (tone == 1)) return fitted; // coloured, or already the right way
-
-        for (int i = 0; i < px.length; i++) {
-            int c = px[i];
-            int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
-            int shift = 255 - Math.max(r, Math.max(g, bl)) - Math.min(r, Math.min(g, bl)); // lightness to 1 - lightness
-            r = Math.max(0, Math.min(255, r + shift));
-            g = Math.max(0, Math.min(255, g + shift));
-            bl = Math.max(0, Math.min(255, bl + shift));
-            px[i] = (c & 0xFF000000) | (r << 16) | (g << 8) | bl;
+        if (max - min > 40) return fitted; // coloured: the app's own colour
+        boolean flip = (max + min > 255) != (tone == TONE_LIGHT); // light background but dark wanted, or the other way
+        int back = Color.rgb(bg[0], bg[1], bg[2]);
+        if (flip) {
+            for (int i = 0; i < px.length; i++) px[i] = flipLightness(px[i]);
+            back = flipLightness(back);
+        }
+        // Glass: the (now dark) background goes see-through, so the logo sits on the dock's glass. Edge
+        // pixels, part logo and part background, keep just the logo's part, so the edges stay smooth.
+        if (tone == TONE_GLASS) {
+            int br = Color.red(back), bgg = Color.green(back), bb = Color.blue(back);
+            for (int i = 0; i < px.length; i++) {
+                int c = px[i];
+                int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
+                int dist = Math.max(Math.abs(r - br), Math.max(Math.abs(g - bgg), Math.abs(bl - bb)));
+                float a = Math.min(1f, dist / 48f);
+                if (a >= 1f) continue;
+                if (a <= 0f) { px[i] = 0; continue; }
+                r = Math.max(0, Math.min(255, Math.round(br + (r - br) / a)));
+                g = Math.max(0, Math.min(255, Math.round(bgg + (g - bgg) / a)));
+                bl = Math.max(0, Math.min(255, Math.round(bb + (bl - bb) / a)));
+                px[i] = (Math.round((c >>> 24) * a) << 24) | (r << 16) | (g << 8) | bl;
+            }
+        } else if (!flip) {
+            return fitted;
         }
         b.setPixels(px, 0, w, 0, 0, w, h);
         return fitted;
+    }
+
+    // Lightness to 1 - lightness, hue and colour strength kept: white and black swap, red stays red.
+    private static int flipLightness(int c) {
+        int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+        int shift = 255 - Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
+        r = Math.max(0, Math.min(255, r + shift));
+        g = Math.max(0, Math.min(255, g + shift));
+        b = Math.max(0, Math.min(255, b + shift));
+        return (c & 0xFF000000) | (r << 16) | (g << 8) | b;
+    }
+
+    // Black & white and Spotlight: how a banner looks while it isn't focused (null: as it is).
+    private android.graphics.ColorFilter restFilter() {
+        int tone = tileTone();
+        android.graphics.ColorMatrix m = new android.graphics.ColorMatrix();
+        if (tone == TONE_MONO) m.setSaturation(0f);
+        else if (tone == TONE_SPOTLIGHT) m.setScale(0.45f, 0.45f, 0.45f, 1f);
+        else return null;
+        return new android.graphics.ColorMatrixColorFilter(m);
     }
 
     // A glow colour made solid over the base, three times as strong, so a small dot shows it.
@@ -932,6 +989,10 @@ public class MainActivity extends Activity {
         rowApps.clear();
         movingKey = null;
         showHint(); // still there while arranging
+
+        boolean glassLook = tileTone() == TONE_GLASS;
+        artShape.setColor(glassLook ? Style.GLASS : 0xFF1E1A1C);
+        artShape.setStroke(glassLook ? Math.max(1, px(Style.STROKE)) : 0, Style.GLASS_STROKE);
 
         PackageManager pm = getPackageManager();
         int w = px(TILE_W), h = px(TILE_H);
@@ -1006,6 +1067,7 @@ public class MainActivity extends Activity {
         netIcon = addIcon(NETWORK, Strings.t("Network"), null, qx);
         netState = -1;
         refreshNetwork();
+        placeTopRight();
 
         refreshRecents();
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
@@ -1023,15 +1085,23 @@ public class MainActivity extends Activity {
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
         final TextView name; // glass tiles only: label and line icon turn dark on the white focus
+        ImageView bannerView = null;
+        final android.graphics.ColorFilter rest = restFilter();
         final ImageView glyph; // the line icon's view; tinted on the view, so it redraws at once
         final LineIcon line = lineIcon != null ? new LineIcon(lineIcon) : null;
         if (banner != null) {
             name = null;
             glyph = null;
-            bg.setColor(0xFF1E1A1C);
-            ImageView iv = new ImageView(this);
-            iv.setImageDrawable(fit(banner, w, h));
-            card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
+            if (tileTone() == TONE_GLASS) {
+                bg.setColor(Style.GLASS);
+                bg.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
+            } else {
+                bg.setColor(0xFF1E1A1C);
+            }
+            bannerView = new ImageView(this);
+            bannerView.setImageDrawable(fit(banner, w, h));
+            bannerView.setColorFilter(rest);
+            card.addView(bannerView, new FrameLayout.LayoutParams(-1, -1));
         } else {
             // Frosted "glass" tile: icon above label. Focused, it turns white like tvOS buttons.
             bg.setColor(Style.GLASS);
@@ -1085,7 +1155,9 @@ public class MainActivity extends Activity {
         }
 
         final boolean glass = banner == null;
+        final ImageView bannerArt = bannerView;
         card.setOnFocusChangeListener((v, has) -> {
+            if (bannerArt != null && rest != null) bannerArt.setColorFilter(has ? null : rest);
             if (has) {
                 focusedKey = key;
                 showOnShelf(key, label, subFor(key), art); // asked now: "5 min ago" keeps changing
@@ -1301,7 +1373,8 @@ public class MainActivity extends Activity {
             dropdown(tile(SETTINGS), SETTINGS_ITEMS, which -> {
                 if (which == 0) showWallpapers();
                 else if (which == 1) showTiles();
-                else if (which == 2) openBrightness();
+                else if (which == 2) showStatusItems();
+                else if (which == 3) openBrightness();
                 else openTvSettings();
             });
             return;
@@ -1414,6 +1487,124 @@ public class MainActivity extends Activity {
                 state == OFFLINE ? Strings.t("Offline") : state == ETHERNET ? "Ethernet" : "Wi-Fi");
     }
 
+    // The status bar's choices, on or off, each saved at once. Clock and network change at the top right,
+    // the rest in the line at the top left.
+    private void showStatusItems() {
+        final boolean[] on = new boolean[STATUS_ITEMS.length];
+        for (int i = 0; i < on.length; i++) on[i] = statusOn(STATUS_ITEMS[i]);
+        panel(Strings.t("Status bar"), Arrays.asList(translated(STATUS_ITEMS)), null, 0, -1, null, on, which -> {
+            List<String> keep = new ArrayList<>();
+            for (int i = 0; i < on.length; i++) if (on[i]) keep.add(STATUS_ITEMS[i]);
+            getSharedPreferences(PREFS, 0).edit().putString("status", android.text.TextUtils.join(",", keep)).apply();
+            placeTopRight();
+            restartStatus();
+        });
+    }
+
+    private boolean statusOn(String item) {
+        String saved = getSharedPreferences(PREFS, 0).getString("status", STATUS_DEFAULT);
+        return Arrays.asList(saved.split(",")).contains(item);
+    }
+
+    // The clock at the top right, the network icon left of it, or in the clock's place without it.
+    private void placeTopRight() {
+        if (netIcon == null) return;
+        boolean clock = statusOn("Clock"), net = statusOn("Network");
+        clockView.setVisibility(clock ? View.VISIBLE : View.GONE);
+        View wrap = (View) netIcon.getParent().getParent();
+        wrap.setVisibility(net ? View.VISIBLE : View.GONE); // gone is out of the focus order too
+        int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
+        int clockW = clock ? Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig : -ig;
+        ((FrameLayout.LayoutParams) wrap.getLayoutParams()).leftMargin =
+                getResources().getDisplayMetrics().widthPixels - px(MARGIN) - clockW - ib;
+        wrap.requestLayout();
+    }
+
+    // The status line, every two seconds while the home screen is in front. CPU is the share of time
+    // the cores were busy since the last look (from /proc/stat; where Android doesn't let apps read that,
+    // the cores' speed instead), RAM the share in use, the download speed for the whole TV.
+    private TextView statusLine;
+    private long cpuBusy = -1, cpuAll, rxBytes = -1, rxAt;
+    private final Runnable statusTick = new Runnable() {
+        @Override public void run() {
+            updateStatus();
+            root.postDelayed(this, 2000);
+        }
+    };
+
+    private void restartStatus() {
+        root.removeCallbacks(statusTick);
+        cpuBusy = -1;
+        rxBytes = -1;
+        statusTick.run();
+    }
+
+    private void updateStatus() {
+        List<String> parts = new ArrayList<>();
+        java.util.Locale loc = java.util.Locale.getDefault();
+        if (statusOn("Date"))
+            parts.add(android.text.format.DateFormat.format(Strings.datePattern(), System.currentTimeMillis()).toString());
+        if (statusOn("CPU")) {
+            String cpu = cpuText(loc);
+            if (cpu != null) parts.add(cpu);
+        }
+        if (statusOn("RAM")) {
+            android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            if (mi.totalMem > 0)
+                parts.add(String.format(loc, "RAM %d %%", Math.round(100.0 * (mi.totalMem - mi.availMem) / mi.totalMem)));
+        }
+        if (statusOn("Download speed")) {
+            long rx = android.net.TrafficStats.getTotalRxBytes(), now = android.os.SystemClock.elapsedRealtime();
+            if (rx >= 0 && rxBytes >= 0 && now > rxAt) {
+                double perSec = (rx - rxBytes) * 1000.0 / (now - rxAt);
+                parts.add(perSec >= 1e6 ? String.format(loc, "\u2193 %.1f MB/s", perSec / 1e6)
+                        : String.format(loc, "\u2193 %d KB/s", Math.round(perSec / 1e3)));
+            }
+            rxBytes = rx;
+            rxAt = now;
+        }
+        if (statusOn("Off timer")) {
+            long left = getSharedPreferences(PREFS, 0).getLong("offAt", 0) - System.currentTimeMillis();
+            if (left > 0) parts.add(Strings.t("TV off in") + " " + (left + 59_999) / 60_000 + " " + Strings.t("min"));
+        }
+        String line = android.text.TextUtils.join("   \u00b7   ", parts);
+        if (!line.contentEquals(statusLine.getText())) statusLine.setText(line);
+    }
+
+    private boolean cpuStatBlocked; // Android 8 and later keep /proc/stat (and /proc/loadavg) from apps
+
+    private String cpuText(java.util.Locale loc) {
+        if (!cpuStatBlocked) try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/proc/stat"))) {
+            String[] f = r.readLine().trim().split("\\s+"); // cpu user nice system idle iowait irq softirq ...
+            long all = 0;
+            for (int i = 1; i < f.length && i <= 8; i++) all += Long.parseLong(f[i]);
+            long busy = all - Long.parseLong(f[4]) - Long.parseLong(f[5]);
+            String out = null;
+            if (cpuBusy >= 0 && all > cpuAll)
+                out = String.format(loc, "CPU %d %%", Math.round(100.0 * (busy - cpuBusy) / (all - cpuAll)));
+            cpuBusy = busy;
+            cpuAll = all;
+            return out;
+        } catch (Exception notAllowed) {
+            cpuStatBlocked = true;
+        }
+        // The cores' current speed, averaged, as the next best thing.
+        long sum = 0;
+        int n = 0;
+        for (int i = 0; i < 16; i++) {
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(
+                    "/sys/devices/system/cpu/cpu" + i + "/cpufreq/scaling_cur_freq"))) {
+                sum += Long.parseLong(r.readLine().trim());
+                n++;
+            } catch (Exception e) {
+                if (i > 0) break;
+            }
+        }
+        return n == 0 ? null : String.format(loc, "CPU %.1f GHz", sum / (double) n / 1e6);
+    }
+
     // Wi-Fi settings (on Android TV that page lists Ethernet too), else the TV's network page, else Settings.
     private void openNetworkSettings() {
         for (String a : new String[] {Settings.ACTION_WIFI_SETTINGS, Settings.ACTION_WIRELESS_SETTINGS,
@@ -1510,6 +1701,13 @@ public class MainActivity extends Activity {
     // and moving through it calls preview; Back calls it with selected again, to put things back.
     private void panel(String title, final List<String> labels, final Icon icon, final int size,
                        final int selected, final Pick preview, final Pick pick) {
+        panel(title, labels, icon, size, selected, preview, null, pick);
+    }
+
+    // With checks, each row is a switch: a tick at the end while on. OK flips it, calls pick and keeps
+    // the panel open; Back closes it.
+    private void panel(String title, final List<String> labels, final Icon icon, final int size,
+                       final int selected, final Pick preview, final boolean[] checks, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -1560,12 +1758,24 @@ public class MainActivity extends Activity {
                     catch (Exception e) { icons[pos] = new ColorDrawable(Color.TRANSPARENT); }
                     icons[pos].setBounds(0, 0, size, size);
                 }
-                t.setCompoundDrawablesRelative(icons[pos], null, null, null);
+                Drawable tick = null;
+                if (checks != null) {
+                    tick = checks[pos] ? new LineIcon(LineIcon.CHECK) : new ColorDrawable(Color.TRANSPARENT);
+                    tick.setBounds(0, 0, px(36), px(36));
+                    t.setCompoundDrawableTintList(ink); // dark on the white selector, like the text
+                }
+                t.setCompoundDrawablesRelative(icons[pos], null, tick, null);
                 t.setCompoundDrawablePadding(px(24));
                 return t;
             }
         });
         list.setOnItemClickListener((parent, v, pos, id) -> {
+            if (checks != null) {
+                checks[pos] = !checks[pos];
+                ((BaseAdapter) list.getAdapter()).notifyDataSetChanged();
+                pick.at(pos);
+                return;
+            }
             d.dismiss();
             pick.at(pos);
         });
@@ -1593,7 +1803,8 @@ public class MainActivity extends Activity {
         w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         w.setLayout(px(Style.PANEL_W + Style.PANEL_MARGIN), -1);
         w.setGravity(Gravity.END);
-        w.setDimAmount(preview != null ? 0f : 0.6f); // a preview needs the home screen undimmed
+        // A preview, or switches that change the page at once, need the home screen undimmed.
+        w.setDimAmount(preview != null || checks != null ? 0f : 0.6f);
         d.show();
     }
 

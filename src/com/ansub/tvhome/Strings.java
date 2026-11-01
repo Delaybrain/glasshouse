@@ -15,6 +15,7 @@ final class Strings {
         "HDMI input", "All apps", "Live TV", "Control Center", "All settings",
         "Last opened", "just now", "No device on", "Sleep after", "Off", "min", "TV off in", "The TV turns off in a minute", "is on, press OK to watch", "Picture", "No signal", "Screensaver after", "Screensaver", "Arrange apps", "Pick an app with OK, move it, OK puts it down. Back: done",
         "Tiles", "Original", "Dark", "Light",
+        "Glass", "Black & white", "Spotlight", "Status bar", "Clock", "Date", "Download speed", "Off timer",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -32,6 +33,7 @@ final class Strings {
             "HDMI-Eingang", "Alle Apps", "Live-TV", "Kontrollzentrum", "Alle Einstellungen",
             "Zuletzt geöffnet", "gerade eben", "kein Gerät eingeschaltet", "Ruhezustand nach", "Aus", "Min.", "TV aus in", "Der TV geht in einer Minute aus", "ist an  ·  OK zum Umschalten", "Bild erkannt", "Kein Signal", "Bildschirmschoner nach", "Bildschirmschoner", "Apps anordnen", "Mit OK eine App wählen, mit den Pfeilen verschieben, OK legt sie ab. Zurück: fertig",
             "Kacheln", "Original", "Dunkel", "Hell",
+            "Glas", "Schwarzweiß", "Spotlight", "Statusleiste", "Uhr", "Datum", "Download-Rate", "Ausschalt-Timer",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",

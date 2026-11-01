@@ -29,6 +29,7 @@ final class LineIcon extends Drawable {
     static final int[] WIFI_2 = {4, 120, 195, 92, 225, 90, 4, 120, 195, 50, 225, 90, 3, 120, 195, 4};
     static final int[] WIFI_1 = {4, 120, 195, 50, 225, 90, 3, 120, 195, 4};
     static final int[] SLASH = {0, 50, 45, 1, 190, 205};
+    static final int[] CHECK = {0, 45, 125, 1, 98, 178, 1, 198, 68};
     static final int[] BLUETOOTH = {0, 70, 80, 1, 170, 160, 1, 120, 205, 1, 120, 35, 1, 170, 80, 1, 70, 160};
     static final int[] SOUND = {0, 35, 95, 1, 75, 95, 1, 120, 55, 1, 120, 185, 1, 75, 145, 1, 35, 145, 2,
             4, 120, 120, 40, -45, 90, 4, 120, 120, 78, -45, 90};
@@ -41,6 +42,8 @@ final class LineIcon extends Drawable {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF arc = new RectF();
+    private android.content.res.ColorStateList tint; // set by a TextView, e.g. dark on a white selected row
+    private int alpha = 255; // setAlpha's, applied on top of the tint's own
 
     LineIcon(int[] ops) {
         this.ops = ops;
@@ -69,13 +72,21 @@ final class LineIcon extends Drawable {
                     i += 6;
             }
         }
+        if (tint != null) {
+            int color = tint.getColorForState(getState(), tint.getDefaultColor());
+            paint.setColor(color);
+            paint.setAlpha((color >>> 24) * alpha / 255);
+        }
         c.save();
         c.translate(getBounds().left, getBounds().top);
         c.drawPath(path, paint);
         c.restore();
     }
 
-    @Override public void setAlpha(int a) { paint.setAlpha(a); }
+    @Override public void setAlpha(int a) { alpha = a; paint.setAlpha(a); }
+    @Override public void setTintList(android.content.res.ColorStateList t) { tint = t; invalidateSelf(); }
+    @Override public boolean isStateful() { return tint != null && tint.isStateful(); }
+    @Override protected boolean onStateChange(int[] state) { invalidateSelf(); return tint != null; }
     @Override public void setColorFilter(ColorFilter cf) { paint.setColorFilter(cf); }
     @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     @Override public int getIntrinsicWidth() { return 44; }
