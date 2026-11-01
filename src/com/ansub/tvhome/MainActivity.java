@@ -99,20 +99,20 @@ public class MainActivity extends Activity {
     // The dock is DOCK_X from the sides and the bottom alike. Everything lines up with the dock's inner
     // edges (MARGIN from both sides): name and first tile on the left, art, clock and last tile on the
     // right. Six tiles and five gaps fill the dock's inside exactly: 6 x 262 + 5 x 28 = 1712.
-    private static final int DOCK_X = 64, DOCK_PAD = 40, DOCK_RADIUS = 40, MARGIN = DOCK_X + DOCK_PAD;
-    private static final int TILE_W = 262, TILE_H = 147, GAP = 28, RADIUS = 24;
+    private static final int DOCK_X = 64, DOCK_PAD = 40, DOCK_RADIUS = Style.RADIUS_PANEL, MARGIN = DOCK_X + DOCK_PAD;
+    private static final int TILE_W = 262, TILE_H = 147, GAP = 28, RADIUS = Style.RADIUS_TILE;
     private static final int PILL_H = 64, PILL_GAP = 20, PILL_PAD = 28, PILL_ICON = 28, PILL_ROOM = 96; // ROOM: tile to pills
     private static final int DOCK_TOP = 1080 - DOCK_X - (DOCK_PAD + TILE_H + PILL_ROOM + PILL_H + DOCK_PAD);
     private static final int TILE_LEFT = MARGIN, ROW1_TOP = DOCK_TOP + DOCK_PAD;
     private static final int ROW_STEP = TILE_H + 76; // a tile and room for the focused app's name under it
-    private static final int CLOCK_TOP = 54, CLOCK_SIZE = 38, CLOCK_BOTTOM = 99;
+    private static final int CLOCK_TOP = 54, CLOCK_SIZE = Style.TITLE, CLOCK_BOTTOM = 99;
     private static final int ICON_TOP = 40, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
     // The art sits halfway between the clock and the dock; the name is level with the art's middle.
-    private static final int ART_W = 640, ART_H = 360, ART_RADIUS = 32;
+    private static final int ART_W = 640, ART_H = 360, ART_RADIUS = Style.RADIUS_TILE;
     private static final int ART_TOP = (CLOCK_BOTTOM + DOCK_TOP - ART_H) / 2;
     private static final int TITLE_TOP = ART_TOP + ART_H / 2 - 69, SUB_TOP = TITLE_TOP + 100; // 69: half the name + line
     private static final int SHELF_H = DOCK_TOP;
-    private static final float FOCUS_SCALE = 1.10f;
+    private static final float FOCUS_SCALE = Style.SCALE_TILE;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
     private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Brightness", "TV settings"};
@@ -261,14 +261,14 @@ public class MainActivity extends Activity {
             @Override public void onPicture(boolean showing) { MainActivity.this.onPicture(showing); }
         });
 
-        shelfTitle = text(px(76), Color.WHITE, semibold);
+        shelfTitle = text(px(Style.DISPLAY), Color.WHITE, semibold);
         shelfTitle.setLetterSpacing(-0.02f);
         shelfTitle.setSingleLine(true);
         shelfTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         shelfTitle.setIncludeFontPadding(false);
         int textW = sw - 2 * px(MARGIN) - px(ART_W) - px(48); // up to the art
         root.addView(shelfTitle, at(px(MARGIN), px(TITLE_TOP), textW, -2));
-        shelfSub = text(px(29), 0xB8FFFFFF, regular);
+        shelfSub = text(px(Style.BODY), Style.INK_2, regular);
         shelfSub.setSingleLine(true);
         shelfSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(shelfSub, at(px(MARGIN), px(SUB_TOP), textW, -2));
@@ -286,8 +286,8 @@ public class MainActivity extends Activity {
         dock = new View(this);
         GradientDrawable glass = new GradientDrawable();
         glass.setCornerRadius(px(DOCK_RADIUS));
-        glass.setColor(0x1AFFFFFF);
-        glass.setStroke(Math.max(1, px(2)), 0x2EFFFFFF);
+        glass.setColor(Style.GLASS);
+        glass.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
         dock.setBackground(glass);
         root.addView(dock, at(0, 0, 0, 0)); // placed by buildTiles
 
@@ -309,7 +309,7 @@ public class MainActivity extends Activity {
         GradientDrawable badge = new GradientDrawable();
         badge.setCornerRadius(px(24));
         badge.setColor(0x66000000);
-        badge.setStroke(Math.max(1, px(2)), 0x33FFFFFF);
+        badge.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
         liveBadge.setBackground(badge);
         View redDot = new View(this);
         GradientDrawable red = new GradientDrawable();
@@ -317,7 +317,7 @@ public class MainActivity extends Activity {
         red.setColor(0xFFFF3B30); // Apple's red
         redDot.setBackground(red);
         liveBadge.addView(redDot, new LinearLayout.LayoutParams(px(14), px(14)));
-        liveText = text(px(24), Color.WHITE, semibold);
+        liveText = text(px(Style.LABEL), Color.WHITE, semibold);
         liveText.setLetterSpacing(0.06f);
         LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-2, -2);
         ll.leftMargin = px(12);
@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
         bp.rightMargin = px(MARGIN);
         root.addView(liveBadge, bp);
 
-        moveHint = text(px(24), 0xA8FFFFFF, regular);
+        moveHint = text(px(Style.LABEL), Style.INK_2, regular);
         moveHint.setText(Strings.t("Use the arrows to move it, then press OK"));
         moveHint.setVisibility(View.GONE);
         root.addView(moveHint, at(px(MARGIN), px(ROW1_TOP - 64), -2, -2));
@@ -368,6 +368,8 @@ public class MainActivity extends Activity {
         refreshCecDevices();
         String on = null;
         for (String input : cecDevices.keySet()) if (!before.contains(input)) on = input;
+        // A device that went off takes its "picture seen" with it, or that would keep the dot lit.
+        for (String input : before) if (!cecDevices.containsKey(input)) signal.remove(input);
         if (on != null && hasWindowFocus() && movingKey == null) {
             deviceJustOn = on;
             focusedKey = on;
@@ -823,8 +825,8 @@ public class MainActivity extends Activity {
             card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
         } else {
             // Frosted "glass" tile: icon above label. Focused, it turns white like tvOS buttons.
-            bg.setColor(0x1AFFFFFF);
-            bg.setStroke(Math.max(1, px(2)), 0x1FFFFFFF);
+            bg.setColor(Style.GLASS);
+            bg.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
             inner.setGravity(Gravity.CENTER);
@@ -834,7 +836,7 @@ public class MainActivity extends Activity {
             if (line != null) iv.setImageDrawable(line);
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
-            name = text(px(24), 0xE6FFFFFF, semibold);
+            name = text(px(Style.LABEL), Style.INK, semibold);
             name.setText(label);
             name.setSingleLine(true);
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -854,7 +856,7 @@ public class MainActivity extends Activity {
         card.addView(gloss, new FrameLayout.LayoutParams(-1, h / 2));
         final View sheen = new View(this);
         sheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[] {0x00FFFFFF, 0x2EFFFFFF, 0x00FFFFFF}));
+                new int[] {0x00FFFFFF, Style.GLASS_STROKE, 0x00FFFFFF}));
         sheen.setRotation(18f);
         sheen.setVisibility(View.INVISIBLE);
         card.addView(sheen, new FrameLayout.LayoutParams(w / 3, h * 2, Gravity.CENTER_VERTICAL));
@@ -866,7 +868,7 @@ public class MainActivity extends Activity {
         final Drawable art = banner != null ? banner : appIcon;
 
         // Banner tiles show their name underneath when focused.
-        final TextView caption = banner == null ? null : text(px(25), Color.WHITE, semibold);
+        final TextView caption = banner == null ? null : text(px(Style.LABEL), Color.WHITE, semibold);
         if (caption != null) {
             caption.setText(label);
             caption.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -880,10 +882,10 @@ public class MainActivity extends Activity {
                 showOnShelf(key, label, subFor(key), art); // asked now: "5 min ago" keeps changing
             }
             if (glass) {
-                bg.setColor(has ? 0xF2FFFFFF : 0x1AFFFFFF);
-                if (name != null) name.setTextColor(has ? 0xFF1C1C1E : 0xE6FFFFFF);
+                bg.setColor(has ? Style.FOCUS : Style.GLASS);
+                if (name != null) name.setTextColor(has ? Style.FOCUS_INK : Style.INK);
                 if (glyph != null) {
-                    if (has) glyph.setColorFilter(new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN));
+                    if (has) glyph.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
                     else glyph.clearColorFilter();
                 }
             }
@@ -959,13 +961,13 @@ public class MainActivity extends Activity {
         pill.setPadding(px(PILL_PAD), 0, px(PILL_PAD), 0);
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(PILL_H) / 2f);
-        bg.setColor(0x24FFFFFF);
-        bg.setStroke(Math.max(1, px(2)), 0x2EFFFFFF);
+        bg.setColor(Style.GLASS);
+        bg.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
         pill.setBackground(bg);
         final ImageView iv = new ImageView(this);
         iv.setImageDrawable(new LineIcon(lineIcon));
         pill.addView(iv, new LinearLayout.LayoutParams(px(PILL_ICON), px(PILL_ICON)));
-        final TextView t = text(px(25), Color.WHITE, semibold);
+        final TextView t = text(px(Style.LABEL), Color.WHITE, semibold);
         t.setText(label);
         t.setSingleLine(true);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2);
@@ -994,12 +996,12 @@ public class MainActivity extends Activity {
                 focusedKey = key;
                 showOnShelf(key, label, subFor(key), art);
             }
-            bg.setColor(has ? Color.WHITE : 0x24FFFFFF);
-            bg.setStroke(Math.max(1, px(2)), has ? Color.WHITE : 0x2EFFFFFF);
-            t.setTextColor(has ? 0xFF111318 : Color.WHITE);
-            if (has) iv.setColorFilter(new PorterDuffColorFilter(0xFF111318, PorterDuff.Mode.SRC_IN));
+            bg.setColor(has ? Color.WHITE : Style.GLASS);
+            bg.setStroke(Math.max(1, px(2)), has ? Color.WHITE : Style.GLASS_STROKE);
+            t.setTextColor(has ? Style.FOCUS_INK : Color.WHITE);
+            if (has) iv.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
             else iv.clearColorFilter();
-            v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(150)
+            v.animate().scaleX(has ? Style.SCALE_SMALL : 1f).scaleY(has ? Style.SCALE_SMALL : 1f).setDuration(150)
                     .setInterpolator(new DecelerateInterpolator()).withLayer().start();
         });
         pill.setOnClickListener(v -> open(key));
@@ -1028,9 +1030,9 @@ public class MainActivity extends Activity {
         card.setContentDescription(label);
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
-            bg.setColor(has ? 0xF2FFFFFF : Color.TRANSPARENT);
+            bg.setColor(has ? Style.FOCUS : Color.TRANSPARENT);
             // On the view, not the drawable: the network icon swaps its drawable as the signal changes.
-            if (has) iv.setColorFilter(new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN));
+            if (has) iv.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
             else iv.clearColorFilter();
             v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).setDuration(has ? 220 : 160)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
@@ -1261,32 +1263,42 @@ public class MainActivity extends Activity {
         panel(title, labels, null, 0, -1, null, pick);
     }
 
-    // A side panel in the home screen's own look: a title, then one row per choice, with the same
-    // glass focus as the tiles. Back closes it. icon (or null) puts an icon of that size by each name.
-    // With preview, the list starts on selected and moving through it calls preview; Back calls it
-    // with selected again, to put things back.
+    // A side panel in the same look as Control Center: it floats at the right, a title, then one row
+    // per choice; the selected row is white with dark text, like every focus here. Back closes it.
+    // icon (or null) puts an icon of that size by each name. With preview, the list starts on selected
+    // and moving through it calls preview; Back calls it with selected again, to put things back.
     private void panel(String title, final List<String> labels, final Icon icon, final int size,
                        final int selected, final Pick preview, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(px(48), px(92), px(48), px(48));
+        box.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
+        GradientDrawable panelBg = new GradientDrawable();
+        panelBg.setCornerRadius(px(Style.RADIUS_PANEL));
+        panelBg.setColor(Style.PANEL);
+        panelBg.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
+        box.setBackground(panelBg);
 
-        TextView head = text(px(40), Color.WHITE, semibold);
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
         head.setText(title);
         head.setSingleLine(true);
         head.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        head.setPadding(px(24), 0, px(24), 0);
+        head.setPadding(px(20), 0, px(20), 0);
         box.addView(head);
 
         ListView list = new ListView(this);
         list.setDivider(null);
         list.setVerticalScrollBarEnabled(false);
         list.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        list.setVerticalFadingEdgeEnabled(true); // rows fade out under the title, not cut off
+        list.setFadingEdgeLength(px(48));
         GradientDrawable focus = new GradientDrawable();
-        focus.setCornerRadius(px(RADIUS));
-        focus.setColor(0x38FFFFFF);
+        focus.setCornerRadius(px(Style.RADIUS_TILE));
+        focus.setColor(Style.FOCUS);
         list.setSelector(focus);
+        // The selected row's text turns dark on the white selector (ListView marks that row selected).
+        final android.content.res.ColorStateList ink = new android.content.res.ColorStateList(
+                new int[][] {{android.R.attr.state_selected}, {}}, new int[] {Style.FOCUS_INK, Style.INK});
         // Icons load as rows appear, drawn small to save RAM.
         final Drawable[] icons = new Drawable[labels.size()];
         list.setAdapter(new BaseAdapter() {
@@ -1294,13 +1306,14 @@ public class MainActivity extends Activity {
             @Override public Object getItem(int pos) { return labels.get(pos); }
             @Override public long getItemId(int pos) { return pos; }
             @Override public View getView(int pos, View convert, ViewGroup parent) {
-                TextView t = convert != null ? (TextView) convert : text(px(30), 0xE6FFFFFF, regular);
+                TextView t = convert != null ? (TextView) convert : text(px(Style.BODY), Style.INK, regular);
+                t.setTextColor(ink);
                 t.setText(labels.get(pos));
                 t.setSingleLine(true);
                 t.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 t.setGravity(Gravity.CENTER_VERTICAL);
-                t.setMinHeight(px(88));
-                t.setPadding(px(24), 0, px(24), 0);
+                t.setMinHeight(px(Style.ROW_H));
+                t.setPadding(px(20), 0, px(20), 0);
                 if (icon != null && icons[pos] == null) {
                     try { icons[pos] = icon.at(pos); }
                     catch (Exception e) { icons[pos] = new ColorDrawable(Color.TRANSPARENT); }
@@ -1326,48 +1339,54 @@ public class MainActivity extends Activity {
             d.setOnCancelListener(x -> preview.at(selected));
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 0, 1f);
-        lp.topMargin = px(36);
+        lp.topMargin = px(24);
         box.addView(list, lp);
 
-        d.setContentView(box);
+        // Floating, as far from the screen's edges as the dock.
+        FrameLayout frame = new FrameLayout(this);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, -1);
+        bp.setMargins(0, px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN));
+        frame.addView(box, bp);
+        d.setContentView(frame);
         Window w = d.getWindow();
-        w.setBackgroundDrawable(new ColorDrawable(preview != null ? 0xFF161113 : 0xF7161113));
-        w.setLayout(px(640), -1);
+        w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        w.setLayout(px(Style.PANEL_W + Style.PANEL_MARGIN), -1);
         w.setGravity(Gravity.END);
-        w.setDimAmount(preview != null ? 0f : 0.5f); // a preview needs the home screen undimmed
+        w.setDimAmount(preview != null ? 0f : 0.6f); // a preview needs the home screen undimmed
         d.show();
     }
 
-    // A small menu that drops down under a tile, in the same glass as the tiles. Opens above the
-    // tile when there's no room below. Back closes it.
+    // A small menu that drops down under a tile, in the panels' look: a dark panel, the focused row
+    // white with dark text. Opens above the tile when there's no room below. Back closes it.
     private void dropdown(View anchor, String[] items, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        int pad = px(10), rowH = px(64);
+        // The panel's corner minus its padding is the rows' corner: 40 - 16 = 24, so the curves nest.
+        int pad = px(Style.RADIUS_PANEL - Style.RADIUS_TILE), rowH = px(72);
         box.setPadding(pad, pad, pad, pad);
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(px(RADIUS));
-        bg.setColor(0xFF231D1F);
-        bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
+        bg.setCornerRadius(px(Style.RADIUS_PANEL));
+        bg.setColor(Style.PANEL);
+        bg.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
         box.setBackground(bg);
         float widest = 0; // some languages need more room than the tile is wide
         for (int i = 0; i < items.length; i++) {
             final int which = i;
-            final TextView t = text(px(26), 0xD9FFFFFF, regular);
+            final TextView t = text(px(Style.LABEL), Style.INK, regular);
             t.setText(Strings.t(items[i]));
             t.setSingleLine(true);
             t.setGravity(Gravity.CENTER_VERTICAL);
             t.setPadding(px(22), 0, px(22), 0);
             widest = Math.max(widest, t.getPaint().measureText(t.getText().toString()) + 2 * px(22) + 2 * pad);
             final GradientDrawable focus = new GradientDrawable();
-            focus.setCornerRadius(px(RADIUS - pad));
+            focus.setCornerRadius(px(Style.RADIUS_TILE));
             focus.setColor(Color.TRANSPARENT);
             t.setBackground(focus);
             t.setFocusable(true);
             t.setOnFocusChangeListener((v, has) -> {
-                focus.setColor(has ? 0x38FFFFFF : Color.TRANSPARENT);
-                t.setTextColor(has ? Color.WHITE : 0xD9FFFFFF);
+                focus.setColor(has ? Style.FOCUS : Color.TRANSPARENT);
+                t.setTextColor(has ? Style.FOCUS_INK : Style.INK);
             });
             t.setOnClickListener(v -> {
                 d.dismiss();

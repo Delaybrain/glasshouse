@@ -39,31 +39,31 @@ public class ControlCenter extends Activity {
         Typeface semibold = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0x59000000);
+        root.setBackgroundColor(Style.DIM);
         root.setOnClickListener(v -> finish());
 
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(px(36), px(44), px(36), px(36));
+        panel.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
         GradientDrawable glass = new GradientDrawable();
-        glass.setCornerRadius(px(40));
-        glass.setColor(0xF21C1C1E);
-        glass.setStroke(Math.max(1, px(2)), 0x1FFFFFFF);
+        glass.setCornerRadius(px(Style.RADIUS_PANEL));
+        glass.setColor(Style.PANEL);
+        glass.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
         panel.setBackground(glass);
         panel.setElevation(px(30));
 
         TextClock time = new TextClock(this);
         time.setFormat12Hour("h:mm");
         time.setFormat24Hour("H:mm");
-        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(64));
-        time.setTextColor(Color.WHITE);
+        time.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(Style.HEADLINE));
+        time.setTextColor(Style.INK);
         time.setTypeface(semibold);
         time.setPadding(px(20), 0, 0, 0);
         panel.addView(time);
         TextView head = new TextView(this);
         head.setText(Strings.t("Control Center"));
-        head.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(28));
-        head.setTextColor(0xA6FFFFFF);
+        head.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(Style.BODY));
+        head.setTextColor(Style.INK_2);
         head.setTypeface(regular);
         head.setPadding(px(20), 0, 0, px(24));
         panel.addView(head);
@@ -72,13 +72,13 @@ public class ControlCenter extends Activity {
         for (final Row r : rows()) {
             View row = row(r, regular);
             if (first == null) first = row;
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, px(84));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, px(Style.ROW_H));
             lp.topMargin = px(8);
             panel.addView(row, lp);
         }
 
-        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(600), -1, Gravity.END);
-        pp.setMargins(0, px(32), px(32), px(32));
+        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(Style.PANEL_W), -1, Gravity.END);
+        pp.setMargins(0, px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN));
         root.addView(panel, pp);
         setContentView(root);
 
@@ -198,7 +198,7 @@ public class ControlCenter extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(px(20), 0, px(20), 0);
         final GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(px(22));
+        bg.setCornerRadius(px(Style.RADIUS_TILE));
         bg.setColor(Color.TRANSPARENT);
         row.setBackground(bg);
         final ImageView icon = new ImageView(this);
@@ -207,8 +207,8 @@ public class ControlCenter extends Activity {
         final TextView t = new TextView(this);
         t.setText(r.label);
         r.text = t;
-        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(30));
-        t.setTextColor(0xE6FFFFFF);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(Style.BODY));
+        t.setTextColor(Style.INK);
         t.setTypeface(tf);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
         lp.leftMargin = px(24);
@@ -216,9 +216,9 @@ public class ControlCenter extends Activity {
         row.setFocusable(true);
         // Focus turns the row white with dark text, like the home screen's glass tiles.
         row.setOnFocusChangeListener((v, has) -> {
-            bg.setColor(has ? 0xF2FFFFFF : Color.TRANSPARENT);
-            t.setTextColor(has ? 0xFF1C1C1E : 0xE6FFFFFF);
-            if (has) icon.setColorFilter(new PorterDuffColorFilter(0xFF1C1C1E, PorterDuff.Mode.SRC_IN));
+            bg.setColor(has ? Style.FOCUS : Color.TRANSPARENT);
+            t.setTextColor(has ? Style.FOCUS_INK : Style.INK);
+            if (has) icon.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
             else icon.clearColorFilter();
         });
         row.setOnClickListener(v -> r.go.run());
