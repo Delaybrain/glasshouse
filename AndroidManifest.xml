@@ -42,6 +42,8 @@
     <!-- The sleep setting in Control Center. Granted over adb only, never at install; without it the
          row isn't there: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- The screensaver wait in Control Center: adb shell appops set com.ansub.tvhome WRITE_SETTINGS allow -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-feature android:name="android.software.leanback" android:required="false" />

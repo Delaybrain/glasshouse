@@ -149,6 +149,10 @@ public class MainActivity extends Activity {
     private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
     private ImageView shelfArt;   // the same art, sharp, at the right of the shelf
     private InputPreview preview; // in the art's place for HDMI inputs: what's coming in
+    private View wallpaperView;   // the wallpaper, behind everything
+    // HDMI input -> whether its last preview showed a picture. CEC only knows devices that speak it (a
+    // PC doesn't); this is the next best thing, learnt each time a pill is looked at.
+    private final java.util.Map<String, Boolean> signal = new java.util.HashMap<>();
     private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
@@ -198,6 +202,10 @@ public class MainActivity extends Activity {
         saveConfig(getIntent());
         loadFonts();
         scale = getResources().getDisplayMetrics().widthPixels / 1920f;
+        // The wallpaper is a view under the page, not the window's background: the HDMI preview cuts a
+        // hole through the window for its picture, and a window background went with it, whole.
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+        wallpaperView = new View(this);
         showWallpaper(wallpaper());
 
         ScrollView scroller = new ScrollView(this);
@@ -235,7 +243,7 @@ public class MainActivity extends Activity {
         int sw = getResources().getDisplayMetrics().widthPixels;
         root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
         // HDMI inputs show what's coming in, live, where apps show their art.
-        preview = new InputPreview(this, picture -> {});
+        preview = new InputPreview(this, this::onSignal);
         root.addView(preview.view(), at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
 
         shelfTitle = text(px(76), Color.WHITE, semibold);
@@ -273,7 +281,10 @@ public class MainActivity extends Activity {
         moveHint.setVisibility(View.GONE);
         root.addView(moveHint, at(px(MARGIN), px(ROW1_TOP - 64), -2, -2));
 
-        setContentView(scroller);
+        FrameLayout screen = new FrameLayout(this);
+        screen.addView(wallpaperView, new FrameLayout.LayoutParams(-1, -1));
+        screen.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(screen);
         showRequested(getIntent());
 
         IntentFilter f = new IntentFilter();
@@ -465,7 +476,9 @@ public class MainActivity extends Activity {
             String device = cecDevices.get(key);
             if (device != null && !device.isEmpty())
                 return device + "  ·  " + Strings.t(key.equals(deviceJustOn) ? "is on, press OK to watch" : "HDMI input");
-            return Strings.t("HDMI input") + "  ·  " + Strings.t("No device on");
+            Boolean picture = signal.get(key);
+            return Strings.t("HDMI input") + "  ·  "
+                    + Strings.t(picture == null ? "No device on" : picture ? "Picture" : "No signal");
         }
         if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
         String pkg = LIVE.equals(key) ? livePackage() : key;
@@ -488,6 +501,22 @@ public class MainActivity extends Activity {
             return b;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    // The preview found out whether an input sends a picture: update its dot and the shelf's line.
+    // Only redraws when that changed, and only while that input is still the one in focus.
+    private void onSignal(String inputId, boolean picture) {
+        if (Boolean.valueOf(picture).equals(signal.get(inputId))) return;
+        signal.put(inputId, picture);
+        if (!inputId.equals(focusedKey)) return;
+        shelfSub.setText(subFor(inputId));
+        shelfSub.setVisibility(View.VISIBLE);
+        View pill = tile(inputId);
+        boolean dot = cecDevices.containsKey(inputId) || picture;
+        if (pill != null && dot != (((ViewGroup) pill).getChildCount() > 2)) {
+            dirty = true; // the dot comes and goes with a rebuild; focus and the preview stay put
+            refreshApps();
         }
     }
 
@@ -540,7 +569,7 @@ public class MainActivity extends Activity {
     }
 
     private void showWallpaper(int i) {
-        getWindow().setBackgroundDrawable(background(WALLPAPERS[i]));
+        wallpaperView.setBackground(background(WALLPAPERS[i]));
         updateScrim(WALLPAPERS[i]);
     }
 
@@ -679,8 +708,8 @@ public class MainActivity extends Activity {
         if (store) x += addPill(PLAY_STORE, "Play Store", LineIcon.PLAY, x, pillTop, false) + px(PILL_GAP);
         refreshCecDevices();
         for (TvInputInfo in : hdmiInputs())
-            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop, cecDevices.containsKey(in.getId()))
-                    + px(PILL_GAP);
+            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop,
+                    cecDevices.containsKey(in.getId()) || Boolean.TRUE.equals(signal.get(in.getId()))) + px(PILL_GAP);
         x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop, false) + px(PILL_GAP);
         addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop, false);
 
@@ -787,12 +816,14 @@ public class MainActivity extends Activity {
             // Lift with a little spring, settle back gently: the tvOS focus feel. Parallax: the tile
             // arrives tilted the way focus travelled (as if it caught the movement) and swings flat.
             if (has) {
-                v.setCameraDistance(px(9000));
-                v.setRotationY(-moveX * 9f);
-                v.setRotationX(moveY * 7f);
+                // A near camera, so the tilt shows as perspective and not just a squeeze. The TV runs
+                // animations at half length (animator scale 0.5), hence the long duration here.
+                v.setCameraDistance(getResources().getDisplayMetrics().density * 1400);
+                v.setRotationY(-moveX * 16f);
+                v.setRotationX(moveY * 12f);
             }
             v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).rotationX(0).rotationY(0)
-                    .translationZ(has ? px(30) : 0).setDuration(has ? 420 : 180)
+                    .translationZ(has ? px(30) : 0).setDuration(has ? 700 : 180)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
                     .withLayer().start();
             gloss.animate().alpha(has ? 1f : 0f).setDuration(200).start();

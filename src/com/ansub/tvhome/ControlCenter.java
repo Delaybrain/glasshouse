@@ -113,6 +113,33 @@ public class ControlCenter extends Activity {
         r.text.setText(offLabel());
     }
 
+    // When the screensaver starts, or off. Its own settings page went with Google TV's screensaver, so
+    // it's here. The wait is Settings.System's screen-off timeout (on a TV that starts the screensaver),
+    // which needs WRITE_SETTINGS: adb shell appops set com.ansub.tvhome WRITE_SETTINGS allow
+    private static final int[] SAVER_MINUTES = {0, 5, 10, 15, 30}; // 0: off
+
+    private int saverMinutes() {
+        if (Settings.Secure.getInt(getContentResolver(), "screensaver_enabled", 1) == 0) return 0;
+        return Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 0) / 60000;
+    }
+
+    private String saverLabel() {
+        int m = saverMinutes();
+        return Strings.t("Screensaver after") + ":  " + (m == 0 ? Strings.t("Off") : m + " " + Strings.t("min"));
+    }
+
+    private void nextSaver(Row r) {
+        int now = saverMinutes(), next = SAVER_MINUTES[0];
+        for (int m : SAVER_MINUTES) if (m > now) { next = m; break; }
+        try {
+            Settings.Secure.putInt(getContentResolver(), "screensaver_enabled", next == 0 ? 0 : 1);
+            if (next > 0) Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, next * 60000);
+        } catch (SecurityException e) {
+            return;
+        }
+        r.text.setText(saverLabel());
+    }
+
     // How long the TV waits without a button press before it goes to sleep. OK steps through these and
     // the panel stays open. Only with: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS
     private static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 120}; // 0: never
@@ -151,6 +178,12 @@ public class ControlCenter extends Activity {
             final Row[] off = new Row[1];
             off[0] = new Row(offLabel(), LineIcon.POWER, () -> nextOffTimer(off[0]));
             out.add(off[0]);
+        }
+        if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
+                && Settings.System.canWrite(this)) {
+            final Row[] saver = new Row[1];
+            saver[0] = new Row(saverLabel(), LineIcon.PICTURE, () -> nextSaver(saver[0]));
+            out.add(saver[0]);
         }
         if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) {
             final Row[] sleep = new Row[1];
