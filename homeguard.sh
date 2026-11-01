@@ -29,10 +29,13 @@ if [ "$MODE" = on ]; then
   list=${rest:+$rest:}$ME
   sh_tv settings put secure enabled_accessibility_services "$list"
   sh_tv settings put secure accessibility_enabled 1
+  sh_tv settings delete secure tvhome_homeguard >/dev/null # the home screen may put it back again
   echo "HomeGuard is on. Press Home on the remote to try it."
 else
   if [ -n "$rest" ]; then sh_tv settings put secure enabled_accessibility_services "$rest"
   else sh_tv settings delete secure enabled_accessibility_services >/dev/null
        sh_tv settings put secure accessibility_enabled 0; fi
+  # Tells the home screen not to turn it back on by itself (it does that after updates).
+  sh_tv settings put secure tvhome_homeguard off
   echo "HomeGuard is off. Home opens the TV's own home screen again."
 fi

@@ -470,6 +470,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        keepHomeGuardOn();
         // Rebuild only when apps were installed, removed or updated.
         if (dirty) {
             dirty = false;
@@ -489,6 +490,26 @@ public class MainActivity extends Activity {
                 target.getOnFocusChangeListener().onFocusChange(target, true);
             else target.requestFocus();
         }
+    }
+
+    // Android drops HomeGuard from the accessibility services whenever this app is stopped (an update,
+    // a force stop), and then Home, Settings and the other buttons quietly stop working. With
+    // WRITE_SECURE_SETTINGS (granted over adb) the home screen puts it back each time it comes up,
+    // unless homeguard.sh turned it off on purpose (it leaves tvhome_homeguard=off for that).
+    private void keepHomeGuardOn() {
+        if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != PackageManager.PERMISSION_GRANTED) return;
+        android.content.ContentResolver cr = getContentResolver();
+        if ("off".equals(Settings.Secure.getString(cr, "tvhome_homeguard"))) return;
+        String me = getPackageName() + "/.HomeGuard"; // the short form homeguard.sh and check.sh use
+        String now = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        String list = ":" + now + ":";
+        if (now != null && (list.contains(":" + me + ":")
+                || list.contains(":" + getPackageName() + "/" + HomeGuard.class.getName() + ":"))) return;
+        try {
+            Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    now == null || now.isEmpty() ? me : now + ":" + me);
+            Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1);
+        } catch (SecurityException ignored) {}
     }
 
     // When each app was last open, and which one was last, from Android's usage stats (allowed with:

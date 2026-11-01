@@ -62,6 +62,7 @@ fi
 # In the same argument as rm, like the read above: Git Bash on Windows turns an argument that starts with / into a Windows path.
 adb -s "$TV" shell "rm -f $LIST"
 sh "$(dirname "$0")/homeguard.sh" "$TV" off >/dev/null 2>&1 || true
+adb -s "$TV" shell settings delete secure tvhome_homeguard >/dev/null 2>&1 || true # its marker, no longer needed
 adb -s "$TV" uninstall com.ansub.tvhome >/dev/null 2>&1 || true
 adb -s "$TV" shell input keyevent KEYCODE_HOME
 echo "Removed. Your TV is back to its own home screen."
