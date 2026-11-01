@@ -65,7 +65,8 @@ public class MainActivity extends Activity {
     //     (--es apps auto  goes back to 2; add --es stamp <unique> so it's applied only once, see saveConfig)
     //  2. apps.txt (built in as Apps.LIST), topped up with other TV apps installed on this TV.
     // Missing apps are skipped. Topping up stops at six apps, but a chosen list can be any length:
-    // six show, and the row scrolls sideways for the rest (Right on the last goes back to the first).
+    // six show, and the row scrolls sideways for the rest (Right on the last goes to the first, Left on
+    // the first to the last).
     // On the TV, hold OK on an app (or press Menu) to move or remove it, or add another; that saves list 1.
     // A network tile always sits at the top right, level with the clock. Settings shortcuts can join
     // it there, off until picked the same way:
@@ -997,10 +998,14 @@ public class MainActivity extends Activity {
                     || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
             boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
             if (key.equals(movingKey)) return moveKey(key, code, ok, down);
-            // Right on the last app goes round to the first.
+            // Right on the last app goes round to the first, Left on the first to the last.
             if (editable && code == KeyEvent.KEYCODE_DPAD_RIGHT && rowApps.size() > 1
                     && key.equals(rowApps.get(rowApps.size() - 1))) {
                 if (down) tile(rowApps.get(0)).requestFocus();
+                return true;
+            }
+            if (editable && code == KeyEvent.KEYCODE_DPAD_LEFT && rowApps.size() > 1 && key.equals(rowApps.get(0))) {
+                if (down) tile(rowApps.get(rowApps.size() - 1)).requestFocus();
                 return true;
             }
             if (editable && code == KeyEvent.KEYCODE_MENU) {
