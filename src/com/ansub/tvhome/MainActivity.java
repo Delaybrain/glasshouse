@@ -357,8 +357,9 @@ public class MainActivity extends Activity {
         rateDot.setText(STATUS_DOT);
         clockDot = statusText();
         clockDot.setText(STATUS_DOT);
-        clockView = clock("h:mm", "H:mm", px(Style.LABEL), Style.INK_2, semibold);
+        clockView = clock("h:mm", "H:mm", px(Style.TITLE), Color.WHITE, semibold); // the clock stays big and white
         clockView.setFontFeatureSettings("tnum");
+        clockView.setIncludeFontPadding(false);
         for (View v : new View[] {rateText, rateDot, clockDot, clockView}) topRight.addView(v); // network goes in at 2
         FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
         tp.topMargin = px(ICON_TOP);
