@@ -14,6 +14,7 @@ final class Strings {
         "Use the arrows to move it, then press OK", "Every app is already here", "Add an app", "Replace %s", "Wallpaper", "TV settings", "Brightness",
         "HDMI input", "All apps", "Live TV", "Control Center", "All settings",
         "Last opened", "just now", "No device on", "Sleep after", "Off", "min", "TV off in", "The TV turns off in a minute", "is on, press OK to watch", "Picture", "No signal", "Screensaver after", "Screensaver", "Arrange apps", "Pick an app with OK, move it, OK puts it down. Back: done",
+        "Tiles", "Original", "Dark", "Light",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -30,6 +31,7 @@ final class Strings {
             "Mit den Pfeiltasten verschieben, dann OK drücken", "Alle Apps sind schon da", "App hinzufügen", "%s ersetzen", "Hintergrund", "TV-Einstellungen", "Helligkeit",
             "HDMI-Eingang", "Alle Apps", "Live-TV", "Kontrollzentrum", "Alle Einstellungen",
             "Zuletzt geöffnet", "gerade eben", "kein Gerät eingeschaltet", "Ruhezustand nach", "Aus", "Min.", "TV aus in", "Der TV geht in einer Minute aus", "ist an  ·  OK zum Umschalten", "Bild erkannt", "Kein Signal", "Bildschirmschoner nach", "Bildschirmschoner", "Apps anordnen", "Mit OK eine App wählen, mit den Pfeilen verschieben, OK legt sie ab. Zurück: fertig",
+            "Kacheln", "Original", "Dunkel", "Hell",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",

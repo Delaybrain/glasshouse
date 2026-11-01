@@ -116,7 +116,9 @@ public class MainActivity extends Activity {
     private static final float FOCUS_SCALE = Style.SCALE_TILE;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
-    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Brightness", "TV settings"};
+    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Brightness", "TV settings"};
+    // How app banners look ("Tiles" in that menu): as the apps made them, or all on dark, or all on light.
+    private static final String[] TILE_TONES = {"Original", "Dark", "Light"};
     // Android TV 11 and later (Google TV too) has no Display page, but its "Display & Sound" page holds Picture.
     private static final String[] TV_DISPLAY_SOUND = {"com.android.tv.settings",
             "com.android.tv.settings.device.displaysound.DisplaySoundActivity"};
@@ -159,7 +161,6 @@ public class MainActivity extends Activity {
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
     private final java.util.Map<String, Long> lastUsed = new java.util.HashMap<>(); // package -> last seen
     private final java.util.Map<String, String> cecDevices = new java.util.HashMap<>(); // HDMI input -> device on it
-    private String mostRecent;    // the app used last, if usage stats are allowed
     private View dock;            // the glass panel the tiles sit on
     private View dockShade;       // darkens the dock over a live HDMI picture
     private android.widget.HorizontalScrollView appScroll; // the app row, scrolling sideways
@@ -504,6 +505,8 @@ public class MainActivity extends Activity {
         preview.stop();
         if (arranging && movingKey == null) stopArrange();
         shelfKey = null; // so the shelf (and the preview) start again on the way back
+        // Kept on disk: Android may stop this app while you're away, and cameFrom() needs it on the way back.
+        getSharedPreferences(PREFS, 0).edit().putLong("awayAt", System.currentTimeMillis()).apply();
     }
 
     @Override
@@ -518,9 +521,10 @@ public class MainActivity extends Activity {
             refreshRecents(); // coming back from an app: it's the most recent one now
         }
         refreshNetwork();
-        // Like Apple TV, Home comes back on the app you just left, and the shelf says when that was.
-        View target = movingKey == null && mostRecent != null ? tile(mostRecent) : null;
-        if (target == null && movingKey == null && mostRecent != null && mostRecent.equals(livePackage())) target = tile(LIVE);
+        // Like Apple TV, Home comes back on the app you just left (and the shelf says when that was), on
+        // Live TV after Live TV, and on the first app after the TV was off.
+        String back = movingKey == null ? cameFrom() : null;
+        View target = back == null ? null : tile(back);
         if (target == null) target = getCurrentFocus();
         if (target == null && !tiles.isEmpty()) target = tiles.get(0);
         if (target != null) {
@@ -529,6 +533,49 @@ public class MainActivity extends Activity {
                 target.getOnFocusChangeListener().onFocusChange(target, true);
             else target.requestFocus();
         }
+    }
+
+    // Where Home should come back to, from what was in front since it was left (usage stats, allowed
+    // over adb): that app's tile, Live TV's pill, or the first app when the TV was off or started in
+    // between. Null keeps the focus where it was: an HDMI input (its pill is still focused when it was
+    // opened from here), a menu of the TV's, or no usage stats.
+    private String cameFrom() {
+        long since = getSharedPreferences(PREFS, 0).getLong("awayAt", 0), now = System.currentTimeMillis();
+        android.app.usage.UsageStatsManager um =
+                (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+        if (um == null || since <= 0 || since > now) return null;
+        String last = null;
+        boolean wasOff = false;
+        try {
+            android.app.usage.UsageEvents events = um.queryEvents(since, now);
+            android.app.usage.UsageEvents.Event e = new android.app.usage.UsageEvents.Event();
+            while (events.hasNextEvent()) {
+                events.getNextEvent(e);
+                int type = e.getEventType();
+                // Screen on or off (15, 16), shut down or started (26, 27): what ran before that is old.
+                if (type == 15 || type == 16 || type == 26 || type == 27) {
+                    wasOff = true;
+                    last = null;
+                } else if (type == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
+                        && !getPackageName().equals(e.getPackageName())) {
+                    last = e.getPackageName();
+                }
+            }
+        } catch (Exception ex) {
+            return null;
+        }
+        if (last != null && rowApps.contains(last)) return last;
+        if (last != null && last.equals(livePackage())) return LIVE;
+        // HDMI: which input played isn't told to apps. The focused pill if it is one (it was opened from
+        // here), else the one input with a device on, if that's clear.
+        if (INPUT_PLAYER.equals(last)) {
+            View f = getCurrentFocus();
+            if (f != null && f.getTag() instanceof String && isInput((String) f.getTag())) return null;
+            if (cecDevices.size() == 1) return cecDevices.keySet().iterator().next(); // keyed by HDMI port
+        }
+        // The TV turned on into a settings screen, say: start at the first app like a fresh start.
+        if (wasOff) return rowApps.isEmpty() ? null : rowApps.get(0);
+        return null;
     }
 
     // Android drops HomeGuard from the accessibility services whenever this app is stopped (an update,
@@ -551,12 +598,11 @@ public class MainActivity extends Activity {
         } catch (SecurityException ignored) {}
     }
 
-    // When each app was last open, and which one was last, from Android's usage stats (allowed with:
+    // When each app was last open, from Android's usage stats (allowed with:
     // adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow). Without that permission nothing is
     // known, and the shelf just shows the app's name.
     private void refreshRecents() {
         lastUsed.clear();
-        mostRecent = null;
         android.app.usage.UsageStatsManager um =
                 (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
         if (um == null) return;
@@ -577,7 +623,6 @@ public class MainActivity extends Activity {
             if (had != null && had >= t) continue;
             if (had == null && launchIntent(pm, p) == null) continue;
             lastUsed.put(p, t);
-            if (mostRecent == null || t > lastUsed.get(mostRecent)) mostRecent = p;
         }
     }
 
@@ -611,7 +656,7 @@ public class MainActivity extends Activity {
         try {
             Drawable b = pm.getActivityBanner(i);
             if (b == null && i.getComponent() != null) b = pm.getApplicationBanner(i.getComponent().getPackageName());
-            return b;
+            return toned(b);
         } catch (Exception e) {
             return null;
         }
@@ -775,6 +820,86 @@ public class MainActivity extends Activity {
         });
     }
 
+    private int tileTone() {
+        int i = Arrays.asList(TILE_TONES).indexOf(getSharedPreferences(PREFS, 0).getString("tiles", null));
+        return i >= 0 ? i : 1; // dark, like the rest of the page
+    }
+
+    // Original, dark or light, each with a small swatch. OK redraws the tiles in that tone.
+    private void showTiles() {
+        final int size = px(40);
+        panel(Strings.t("Tiles"), Arrays.asList(translated(TILE_TONES)), pos -> {
+            GradientDrawable swatch = pos == 0
+                    ? new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[] {Color.WHITE, 0xFF0B0C10})
+                    : new GradientDrawable();
+            if (pos != 0) swatch.setColor(pos == 1 ? 0xFF0B0C10 : 0xFFF2F2F2);
+            swatch.setCornerRadius(px(10));
+            swatch.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
+            swatch.setSize(size, size);
+            return swatch;
+        }, size, tileTone(), pos -> {}, which -> {
+            if (which == tileTone()) return;
+            getSharedPreferences(PREFS, 0).edit().putString("tiles", TILE_TONES[which]).apply();
+            shelfCache.clear();
+            shelfKey = null;
+            buildTiles();
+        });
+    }
+
+    // One look for all tiles: a banner on a white, grey or black background gets its lightness flipped
+    // when that background is the wrong way round for the tone, with its colours kept: white goes black,
+    // black lettering goes white, Netflix's red stays red. A coloured background (Prime's blue) is the
+    // app's own colour, so it stays. Done once per banner, at most 640x360, when the tiles are built.
+    private Drawable toned(Drawable d) {
+        int tone = tileTone();
+        if (d == null || tone == 0) return d;
+        int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
+        if (iw <= 0 || ih <= 0) return d;
+        float s = Math.min(1f, Math.min(640f / iw, 360f / ih));
+        int w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
+        Drawable fitted = fit(d, w, h);
+        if (!(fitted instanceof BitmapDrawable)) return d;
+        Bitmap b = ((BitmapDrawable) fitted).getBitmap();
+        int[] px = new int[w * h];
+        b.getPixels(px, 0, w, 0, 0, w, h);
+
+        // The background: the middle value of the edge pixels, channel by channel, skipping see-through ones.
+        int[][] edge = new int[3][2 * (w + h)];
+        int n = 0;
+        for (int i = 0; i < w * h; i++) {
+            int x = i % w, y = i / w;
+            if (x != 0 && y != 0 && x != w - 1 && y != h - 1) continue;
+            int c = px[i];
+            if (n == edge[0].length || (c >>> 24) < 128) continue;
+            edge[0][n] = (c >> 16) & 0xFF;
+            edge[1][n] = (c >> 8) & 0xFF;
+            edge[2][n] = c & 0xFF;
+            n++;
+        }
+        if (n < w) return d; // mostly see-through: nothing to flip
+        int[] bg = new int[3];
+        for (int ch = 0; ch < 3; ch++) {
+            int[] v = Arrays.copyOf(edge[ch], n);
+            Arrays.sort(v);
+            bg[ch] = v[n / 2];
+        }
+        int max = Math.max(bg[0], Math.max(bg[1], bg[2])), min = Math.min(bg[0], Math.min(bg[1], bg[2]));
+        boolean light = max + min > 255;
+        if (max - min > 40 || light != (tone == 1)) return fitted; // coloured, or already the right way
+
+        for (int i = 0; i < px.length; i++) {
+            int c = px[i];
+            int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
+            int shift = 255 - Math.max(r, Math.max(g, bl)) - Math.min(r, Math.min(g, bl)); // lightness to 1 - lightness
+            r = Math.max(0, Math.min(255, r + shift));
+            g = Math.max(0, Math.min(255, g + shift));
+            bl = Math.max(0, Math.min(255, bl + shift));
+            px[i] = (c & 0xFF000000) | (r << 16) | (g << 8) | bl;
+        }
+        b.setPixels(px, 0, w, 0, 0, w, h);
+        return fitted;
+    }
+
     // A glow colour made solid over the base, three times as strong, so a small dot shows it.
     private static int glow(int glow, int base) {
         float a = Math.min(1f, 3 * (glow >>> 24) / 255f);
@@ -853,6 +978,7 @@ public class MainActivity extends Activity {
             // Apps without a TV banner get a plain tile with their normal icon.
             Drawable icon = null;
             if (banner == null) try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
+            banner = toned(banner);
             int i = rowApps.size();
             rowApps.add(pkg);
             addTile(appStrip, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
@@ -1174,7 +1300,8 @@ public class MainActivity extends Activity {
         } else if (SETTINGS.equals(key)) {
             dropdown(tile(SETTINGS), SETTINGS_ITEMS, which -> {
                 if (which == 0) showWallpapers();
-                else if (which == 1) openBrightness();
+                else if (which == 1) showTiles();
+                else if (which == 2) openBrightness();
                 else openTvSettings();
             });
             return;
