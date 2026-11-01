@@ -106,8 +106,11 @@ public class MainActivity extends Activity {
     private static final int PILL_H = 64, PILL_GAP = 20, PILL_PAD = 28, PILL_ICON = 28, PILL_ROOM = 96; // ROOM: tile to pills
     private static final int DOCK_TOP = 1080 - DOCK_X - (DOCK_PAD + TILE_H + PILL_ROOM + PILL_H + DOCK_PAD);
     private static final int TILE_LEFT = MARGIN, ROW1_TOP = DOCK_TOP + DOCK_PAD;
-    private static final int CLOCK_TOP = 54, CLOCK_SIZE = Style.TITLE, CLOCK_BOTTOM = 99;
-    private static final int ICON_TOP = 40, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
+    private static final int CLOCK_BOTTOM = 99; // where the top row ends, for placing the art below it
+    private static final int ICON_TOP = 40, ICON_BUTTON = 72; // the top row: its top, and its height
+    private static final int STATUS_ICON = 30; // the network icon, as tall as the status text
+    private static final float ICON_DIM = 0xB8 / (float) 0xEB; // brings LineIcon's white down to Style.INK_2
+    private static final String STATUS_DOT = "   \u00b7   "; // between the items of the top rows
     // The art sits halfway between the clock and the dock; the name is level with the art's middle.
     private static final int ART_W = 640, ART_H = 360, ART_RADIUS = Style.RADIUS_TILE;
     private static final int ART_TOP = (CLOCK_BOTTOM + DOCK_TOP - ART_H) / 2;
@@ -119,8 +122,12 @@ public class MainActivity extends Activity {
     private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Status bar", "Brightness", "TV settings"};
     // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
     // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
-    private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight"};
-    private static final int TONE_ORIGINAL = 0, TONE_LIGHT = 2, TONE_GLASS = 3, TONE_MONO = 4, TONE_SPOTLIGHT = 5;
+    private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight",
+            "Light by day, dark at night"};
+    private static final int TONE_ORIGINAL = 0, TONE_DARK = 1, TONE_LIGHT = 2, TONE_GLASS = 3, TONE_MONO = 4,
+            TONE_SPOTLIGHT = 5, TONE_AUTO = 6;
+    private static final int DAY_FROM = 7, DAY_UNTIL = 19; // the Auto look's day, in hours
+    private static final int RECENTS = 6; // apps in the list Home held opens
     // What the top of the page shows ("Status bar" in that menu). Clock and network sit at the top right,
     // the rest is one line at the top left. The off timer shows only while one is set.
     private static final String[] STATUS_ITEMS = {"Clock", "Network", "Date", "CPU", "RAM", "RAM in GB",
@@ -336,31 +343,27 @@ public class MainActivity extends Activity {
         moreLeft = arrow(LineIcon.PREV);
         moreRight = arrow(LineIcon.NEXT);
 
-        // The clock at the top right, the network icon left of it. Bluetooth, sound and picture live in
-        // Control Center.
-        clockView = clock("h:mm", "H:mm", px(CLOCK_SIZE), Color.WHITE, semibold);
-        clockView.setFontFeatureSettings("tnum");
-        clockView.setIncludeFontPadding(false);
-        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        cp.topMargin = px(CLOCK_TOP);
-        cp.rightMargin = px(MARGIN);
-        root.addView(clockView, cp);
-
-        // The status line at the top left, level with the clock: date, CPU, RAM, ... (see updateStatus).
-        statusLine = text(px(Style.LABEL), Style.INK_2, semibold);
-        statusLine.setFontFeatureSettings("tnum");
-        statusLine.setGravity(Gravity.CENTER_VERTICAL);
-        statusLine.setSingleLine(true);
+        // The top of the page, in one look: a line at the top left (date, CPU, RAM, ...) and its mirror at
+        // the top right (download speed · network · clock), same size, colour and dots between. Bluetooth,
+        // sound and picture live in Control Center.
+        statusLine = statusText();
         root.addView(statusLine, at(px(MARGIN), px(ICON_TOP), -2, px(ICON_BUTTON)));
-        // The download speed sits with the network, left of its icon (placed by placeTopRight). Right-aligned,
-        // so a longer number grows away from the icon.
-        rateText = text(px(Style.LABEL), Style.INK_2, semibold);
-        rateText.setFontFeatureSettings("tnum");
-        rateText.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        rateText.setSingleLine(true);
-        FrameLayout.LayoutParams rp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
-        rp.topMargin = px(ICON_TOP);
-        root.addView(rateText, rp);
+        topRight = new LinearLayout(this);
+        topRight.setOrientation(LinearLayout.HORIZONTAL);
+        topRight.setGravity(Gravity.CENTER_VERTICAL);
+        topRight.setClipChildren(false);
+        rateText = statusText();
+        rateDot = statusText();
+        rateDot.setText(STATUS_DOT);
+        clockDot = statusText();
+        clockDot.setText(STATUS_DOT);
+        clockView = clock("h:mm", "H:mm", px(Style.LABEL), Style.INK_2, semibold);
+        clockView.setFontFeatureSettings("tnum");
+        for (View v : new View[] {rateText, rateDot, clockDot, clockView}) topRight.addView(v); // network goes in at 2
+        FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
+        tp.topMargin = px(ICON_TOP);
+        tp.rightMargin = px(MARGIN);
+        root.addView(topRight, tp);
 
         // "● LIVE · 1080p · 60 Hz", where an app's art goes, while an HDMI input's picture is behind the page.
         liveBadge = new LinearLayout(this);
@@ -469,10 +472,30 @@ public class MainActivity extends Activity {
 
     // HomeGuard opens the app list for the remote's Apps button with --es show apps. Taken out of the
     // intent once shown, so the list doesn't come back when Android restarts the home screen.
+    // Home held down (HomeGuard) asks for the recently used apps the same way, with --es show recents.
     private void showRequested(Intent intent) {
-        if (intent == null || !"apps".equals(intent.getStringExtra("show"))) return;
+        String show = intent == null ? null : intent.getStringExtra("show");
+        if (!"apps".equals(show) && !"recents".equals(show)) return;
         intent.removeExtra("show");
-        root.post(this::showAllApps);
+        root.post("apps".equals(show) ? this::showAllApps : this::showRecents);
+    }
+
+    // The apps used last, newest first (the one just left on top), from usage stats; OK opens one.
+    private void showRecents() {
+        refreshRecents();
+        final List<String> pkgs = new ArrayList<>(lastUsed.keySet());
+        java.util.Collections.sort(pkgs, (a, b) -> Long.compare(lastUsed.get(b), lastUsed.get(a)));
+        while (pkgs.size() > RECENTS) pkgs.remove(pkgs.size() - 1);
+        if (pkgs.isEmpty()) return;
+        final PackageManager pm = getPackageManager();
+        List<String> labels = new ArrayList<>();
+        for (String pkg : pkgs) {
+            String label = pkg;
+            try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); } catch (Exception ignored) {}
+            labels.add(label);
+        }
+        panel(Strings.t("Recently used"), labels, pos -> fit(pm.getApplicationIcon(pkgs.get(pos)), px(48), px(48)),
+                px(48), -1, null, which -> open(pkgs.get(which)));
     }
 
     // Saves an app list passed with --es apps "..." and shortcuts passed with --es quick "...".
@@ -847,9 +870,38 @@ public class MainActivity extends Activity {
         });
     }
 
+    // The look picked under Tiles.
     private int tileTone() {
         int i = Arrays.asList(TILE_TONES).indexOf(getSharedPreferences(PREFS, 0).getString("tiles", null));
-        return i >= 0 ? i : 1; // dark, like the rest of the page
+        return i >= 0 ? i : TONE_DARK; // dark, like the rest of the page
+    }
+
+    // The look the tiles have right now: Auto is Light by day and Dark in the evening and at night.
+    private int shownTone() {
+        int tone = tileTone();
+        if (tone != TONE_AUTO) return tone;
+        return isNight() ? TONE_DARK : TONE_LIGHT;
+    }
+
+    private static boolean isNight() {
+        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        return hour < DAY_FROM || hour >= DAY_UNTIL;
+    }
+
+    // Auto at night also takes the wallpaper down a little, over its picture (so it fades with it for HDMI).
+    private void applyNight() {
+        boolean night = tileTone() == TONE_AUTO && isNight();
+        wallpaperView.setForeground(night ? new ColorDrawable(0x59000000) : null);
+    }
+
+    private int builtTone = -1; // the look the tiles were last drawn in
+
+    // Auto turning from day to night (or back) while the home screen is up: redraw in the other look.
+    private void followDayAndNight() {
+        if (builtTone == -1 || shownTone() == builtTone) return;
+        shelfCache.clear();
+        shelfKey = null;
+        buildTiles();
     }
 
     // The looks, each with a small swatch, ticked when chosen; under them, whether coloured backgrounds
@@ -868,6 +920,8 @@ public class MainActivity extends Activity {
                     new int[] {0xFF0A7BFF, 0xFF0A7BFF, 0xFF0B0C10, 0xFF0B0C10});
             else if (pos == TONE_ORIGINAL) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[] {0xFFE50914, Color.WHITE, 0xFF0A7BFF});
+            else if (pos == TONE_AUTO) swatch = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    new int[] {0xFFF2F2F2, 0xFFF2F2F2, 0xFF0B0C10, 0xFF0B0C10});
             else if (pos == TONE_MONO) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[] {0xFFD0D0D0, 0xFF0B0C10});
             else if (pos == TONE_SPOTLIGHT) {
@@ -900,7 +954,7 @@ public class MainActivity extends Activity {
     // app's own colour: it stays, unless "Brand colours too" is on. Done once per banner, at most 640x360,
     // when the tiles are built (so apps installed later get the look as well).
     private Drawable toned(Drawable d) {
-        int tone = tileTone();
+        int tone = shownTone();
         if (d == null || tone == TONE_ORIGINAL) return d;
         int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
         if (iw <= 0 || ih <= 0) return d;
@@ -1011,7 +1065,7 @@ public class MainActivity extends Activity {
 
     // Black & white and Spotlight: how a banner looks while it isn't focused (null: as it is).
     private android.graphics.ColorFilter restFilter() {
-        int tone = tileTone();
+        int tone = shownTone();
         android.graphics.ColorMatrix m = new android.graphics.ColorMatrix();
         if (tone == TONE_MONO) m.setSaturation(0f);
         else if (tone == TONE_SPOTLIGHT) m.setScale(0.45f, 0.45f, 0.45f, 1f);
@@ -1052,7 +1106,9 @@ public class MainActivity extends Activity {
         movingKey = null;
         showHint(); // still there while arranging
 
-        boolean glassLook = tileTone() == TONE_GLASS;
+        builtTone = shownTone();
+        applyNight();
+        boolean glassLook = builtTone == TONE_GLASS;
         artShape.setColor(glassLook ? Style.GLASS : 0xFF1E1A1C);
         artShape.setStroke(glassLook ? Math.max(1, px(Style.STROKE)) : 0, Style.GLASS_STROKE);
 
@@ -1123,10 +1179,7 @@ public class MainActivity extends Activity {
 
         // The network icon left of the clock: Wi-Fi, Ethernet or offline (see refreshNetwork).
         // Added last, so the first app keeps first focus.
-        int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
-        int clockW = Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig;
-        int qx = getResources().getDisplayMetrics().widthPixels - px(MARGIN) - clockW - ib;
-        netIcon = addIcon(NETWORK, Strings.t("Network"), null, qx);
+        netIcon = addIcon(NETWORK, Strings.t("Network"), null);
         netState = -1;
         refreshNetwork();
         placeTopRight();
@@ -1154,7 +1207,7 @@ public class MainActivity extends Activity {
         if (banner != null) {
             name = null;
             glyph = null;
-            if (tileTone() == TONE_GLASS) {
+            if (shownTone() == TONE_GLASS) {
                 bg.setColor(Style.GLASS);
                 bg.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
             } else {
@@ -1385,8 +1438,10 @@ public class MainActivity extends Activity {
     }
 
     // An icon on its own, no tile or label: a glass circle shows behind it only while it's focused.
-    private ImageView addIcon(final String key, String label, Drawable icon, int x) {
-        int b = px(ICON_BUTTON), size = px(ICON_SIZE);
+    // A round icon button in the top right row, between the download speed and the clock. The icon is as
+    // tall as the text beside it, and as dim; focused, the white circle shows round it.
+    private ImageView addIcon(final String key, String label, Drawable icon) {
+        int b = px(ICON_BUTTON), size = px(STATUS_ICON);
         FrameLayout card = new FrameLayout(this);
         final GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
@@ -1404,15 +1459,20 @@ public class MainActivity extends Activity {
             // On the view, not the drawable: the network icon swaps its drawable as the signal changes.
             if (has) iv.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
             else iv.clearColorFilter();
+            iv.setAlpha(has ? 1f : ICON_DIM);
             v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).setDuration(has ? 220 : 160)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
                     .withLayer().start();
         });
+        iv.setAlpha(ICON_DIM);
         card.setOnClickListener(v -> open(key));
         FrameLayout wrap = new FrameLayout(this);
         wrap.setClipChildren(false);
         wrap.addView(card, new FrameLayout.LayoutParams(b, b));
-        root.addView(wrap, at(x, px(ICON_TOP), b, b));
+        // The button is wider than its icon: pull the neighbours in, so the gaps match the left line's.
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(b, b);
+        lp.leftMargin = lp.rightMargin = -(b - size) / 2;
+        topRight.addView(wrap, 2, lp);
         tiles.add(card);
         return iv;
     }
@@ -1568,24 +1628,23 @@ public class MainActivity extends Activity {
         return Arrays.asList(saved.split(",")).contains(item);
     }
 
-    // The clock at the top right, the network icon left of it (or in the clock's place without it), and
-    // the download speed left of those.
+    // The top right row: what's switched on, with a dot between each two.
     private void placeTopRight() {
         if (netIcon == null) return;
-        boolean clock = statusOn("Clock"), net = statusOn("Network");
+        boolean rate = statusOn("Download speed"), net = statusOn("Network"), clock = statusOn("Clock");
+        rateText.setVisibility(rate ? View.VISIBLE : View.GONE);
+        ((View) netIcon.getParent().getParent()).setVisibility(net ? View.VISIBLE : View.GONE); // gone: out of the focus order too
         clockView.setVisibility(clock ? View.VISIBLE : View.GONE);
-        View wrap = (View) netIcon.getParent().getParent();
-        wrap.setVisibility(net ? View.VISIBLE : View.GONE); // gone is out of the focus order too
-        int sw = getResources().getDisplayMetrics().widthPixels, ib = px(ICON_BUTTON), ig = px(ICON_GAP);
-        int textW = Math.round(clockView.getPaint().measureText("00:00"));
-        int clockW = clock ? textW + 2 * ig : -ig;
-        int netX = sw - px(MARGIN) - clockW - ib;
-        ((FrameLayout.LayoutParams) wrap.getLayoutParams()).leftMargin = netX;
-        wrap.requestLayout();
-        // Its right edge: just left of the icon's drawing (not its round focus button), else the clock's text.
-        int edge = net ? netX + (ib - px(ICON_SIZE)) / 2 - ig : clock ? sw - px(MARGIN) - textW - 2 * ig : sw - px(MARGIN);
-        ((FrameLayout.LayoutParams) rateText.getLayoutParams()).rightMargin = sw - edge;
-        rateText.requestLayout();
+        rateDot.setVisibility(rate && (net || clock) ? View.VISIBLE : View.GONE);
+        clockDot.setVisibility(net && clock ? View.VISIBLE : View.GONE);
+    }
+
+    private TextView statusText() {
+        TextView t = text(px(Style.LABEL), Style.INK_2, semibold);
+        t.setFontFeatureSettings("tnum");
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setSingleLine(true);
+        return t;
     }
 
     // The status line, every two seconds while the home screen is in front: the CPU's speed, RAM as the
@@ -1593,11 +1652,13 @@ public class MainActivity extends Activity {
     // Android keeps /proc/stat, /proc/uptime, /proc/loadavg and the cgroup's cpu.stat from apps, the
     // cpuinfo service only has a minutes-old average, and this chip keeps no idle statistics (all tested).
     // Its "ondemand" governor raises the speed with the load, so the speed is the next best thing.
-    private TextView statusLine, rateText;
+    private TextView statusLine, rateText, rateDot, clockDot;
+    private LinearLayout topRight;
     private long rxBytes = -1, rxAt;
     private final Runnable statusTick = new Runnable() {
         @Override public void run() {
             updateStatus();
+            followDayAndNight();
             root.postDelayed(this, 2000);
         }
     };
@@ -1627,7 +1688,7 @@ public class MainActivity extends Activity {
             if (mi.totalMem > 0 && statusOn("RAM in GB"))
                 parts.add(String.format(loc, "RAM %.1f / %.1f GB", used / 1e9, mi.totalMem / 1e9));
         }
-        String rate = "";
+        String rate = "\u2193 0 KB/s";
         if (statusOn("Download speed")) {
             long rx = android.net.TrafficStats.getTotalRxBytes(), now = android.os.SystemClock.elapsedRealtime();
             if (rx >= 0 && rxBytes >= 0 && now > rxAt) {
@@ -1643,7 +1704,7 @@ public class MainActivity extends Activity {
             long left = getSharedPreferences(PREFS, 0).getLong("offAt", 0) - System.currentTimeMillis();
             if (left > 0) parts.add(Strings.t("TV off in") + " " + (left + 59_999) / 60_000 + " " + Strings.t("min"));
         }
-        String line = android.text.TextUtils.join("   \u00b7   ", parts);
+        String line = android.text.TextUtils.join(STATUS_DOT, parts);
         if (!line.contentEquals(statusLine.getText())) statusLine.setText(line);
     }
 

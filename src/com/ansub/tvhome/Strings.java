@@ -17,6 +17,7 @@ final class Strings {
         "Tiles", "Original", "Dark", "Light",
         "Glass", "Black & white", "Spotlight", "Status bar", "Clock", "Date", "Download speed", "Off timer",
         "CPU clock", "RAM usage", "RAM in GB", "Brand colours too",
+        "Light by day, dark at night", "Recently used",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -36,6 +37,7 @@ final class Strings {
             "Kacheln", "Original", "Dunkel", "Hell",
             "Glas", "Schwarzweiß", "Spotlight", "Statusleiste", "Uhr", "Datum", "Download-Rate", "Ausschalt-Timer",
             "CPU-Takt", "RAM-Auslastung", "RAM in GB", "Markenfarben mitfärben",
+            "Tags hell, abends dunkel", "Zuletzt verwendet",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",

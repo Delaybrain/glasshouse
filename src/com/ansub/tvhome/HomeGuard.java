@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.KeyEvent;
+import android.view.ViewConfiguration;
 import android.view.accessibility.AccessibilityEvent;
 
 import java.util.HashSet;
@@ -106,6 +107,16 @@ public class HomeGuard extends AccessibilityService {
         boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
         boolean profile = code == KeyEvent.KEYCODE_PROFILE_SWITCH;
         if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS && !settings && !profile) return false;
+        // Home held down opens the recently used apps instead; its release then does nothing more.
+        if (code == KeyEvent.KEYCODE_HOME && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
+            homeHeld = false;
+            handler.removeCallbacks(holdHome);
+            handler.postDelayed(holdHome, ViewConfiguration.getLongPressTimeout());
+        }
+        if (code == KeyEvent.KEYCODE_HOME && e.getAction() == KeyEvent.ACTION_UP) {
+            handler.removeCallbacks(holdHome);
+            if (homeHeld) return true;
+        }
         if (e.getAction() != KeyEvent.ACTION_UP || e.isCanceled()) return true;
         handler.removeCallbacks(bringHome);
         Intent i;
@@ -137,6 +148,14 @@ public class HomeGuard extends AccessibilityService {
     }
 
     private String front = ""; // the app in front, from window changes
+
+    private boolean homeHeld; // Home was held long enough to open the recent apps
+    private final Runnable holdHome = () -> {
+        homeHeld = true;
+        handler.removeCallbacks(bringHome);
+        start(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                .putExtra("show", "recents"));
+    };
 
     private void start(Intent i) {
         try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
