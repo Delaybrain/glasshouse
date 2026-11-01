@@ -352,6 +352,15 @@ public class MainActivity extends Activity {
         statusLine.setGravity(Gravity.CENTER_VERTICAL);
         statusLine.setSingleLine(true);
         root.addView(statusLine, at(px(MARGIN), px(ICON_TOP), -2, px(ICON_BUTTON)));
+        // The download speed sits with the network, left of its icon (placed by placeTopRight). Right-aligned,
+        // so a longer number grows away from the icon.
+        rateText = text(px(Style.LABEL), Style.INK_2, semibold);
+        rateText.setFontFeatureSettings("tnum");
+        rateText.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        rateText.setSingleLine(true);
+        FrameLayout.LayoutParams rp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
+        rp.topMargin = px(ICON_TOP);
+        root.addView(rateText, rp);
 
         // "● LIVE · 1080p · 60 Hz", where an app's art goes, while an HDMI input's picture is behind the page.
         liveBadge = new LinearLayout(this);
@@ -1559,18 +1568,24 @@ public class MainActivity extends Activity {
         return Arrays.asList(saved.split(",")).contains(item);
     }
 
-    // The clock at the top right, the network icon left of it, or in the clock's place without it.
+    // The clock at the top right, the network icon left of it (or in the clock's place without it), and
+    // the download speed left of those.
     private void placeTopRight() {
         if (netIcon == null) return;
         boolean clock = statusOn("Clock"), net = statusOn("Network");
         clockView.setVisibility(clock ? View.VISIBLE : View.GONE);
         View wrap = (View) netIcon.getParent().getParent();
         wrap.setVisibility(net ? View.VISIBLE : View.GONE); // gone is out of the focus order too
-        int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
-        int clockW = clock ? Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig : -ig;
-        ((FrameLayout.LayoutParams) wrap.getLayoutParams()).leftMargin =
-                getResources().getDisplayMetrics().widthPixels - px(MARGIN) - clockW - ib;
+        int sw = getResources().getDisplayMetrics().widthPixels, ib = px(ICON_BUTTON), ig = px(ICON_GAP);
+        int textW = Math.round(clockView.getPaint().measureText("00:00"));
+        int clockW = clock ? textW + 2 * ig : -ig;
+        int netX = sw - px(MARGIN) - clockW - ib;
+        ((FrameLayout.LayoutParams) wrap.getLayoutParams()).leftMargin = netX;
         wrap.requestLayout();
+        // Its right edge: just left of the icon's drawing (not its round focus button), else the clock's text.
+        int edge = net ? netX + (ib - px(ICON_SIZE)) / 2 - ig : clock ? sw - px(MARGIN) - textW - 2 * ig : sw - px(MARGIN);
+        ((FrameLayout.LayoutParams) rateText.getLayoutParams()).rightMargin = sw - edge;
+        rateText.requestLayout();
     }
 
     // The status line, every two seconds while the home screen is in front: the CPU's speed, RAM as the
@@ -1578,7 +1593,7 @@ public class MainActivity extends Activity {
     // Android keeps /proc/stat, /proc/uptime, /proc/loadavg and the cgroup's cpu.stat from apps, the
     // cpuinfo service only has a minutes-old average, and this chip keeps no idle statistics (all tested).
     // Its "ondemand" governor raises the speed with the load, so the speed is the next best thing.
-    private TextView statusLine;
+    private TextView statusLine, rateText;
     private long rxBytes = -1, rxAt;
     private final Runnable statusTick = new Runnable() {
         @Override public void run() {
@@ -1612,16 +1627,18 @@ public class MainActivity extends Activity {
             if (mi.totalMem > 0 && statusOn("RAM in GB"))
                 parts.add(String.format(loc, "RAM %.1f / %.1f GB", used / 1e9, mi.totalMem / 1e9));
         }
+        String rate = "";
         if (statusOn("Download speed")) {
             long rx = android.net.TrafficStats.getTotalRxBytes(), now = android.os.SystemClock.elapsedRealtime();
             if (rx >= 0 && rxBytes >= 0 && now > rxAt) {
                 double perSec = (rx - rxBytes) * 1000.0 / (now - rxAt);
-                parts.add(perSec >= 1e6 ? String.format(loc, "\u2193 %.1f MB/s", perSec / 1e6)
-                        : String.format(loc, "\u2193 %d KB/s", Math.round(perSec / 1e3)));
+                rate = perSec >= 1e6 ? String.format(loc, "\u2193 %.1f MB/s", perSec / 1e6)
+                        : String.format(loc, "\u2193 %d KB/s", Math.round(perSec / 1e3));
             }
             rxBytes = rx;
             rxAt = now;
         }
+        if (!rate.contentEquals(rateText.getText())) rateText.setText(rate);
         if (statusOn("Off timer")) {
             long left = getSharedPreferences(PREFS, 0).getLong("offAt", 0) - System.currentTimeMillis();
             if (left > 0) parts.add(Strings.t("TV off in") + " " + (left + 59_999) / 60_000 + " " + Strings.t("min"));
