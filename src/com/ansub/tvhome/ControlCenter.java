@@ -94,6 +94,25 @@ public class ControlCenter extends Activity {
         Row(String label, int[] icon, Runnable go) { this.label = label; this.icon = icon; this.go = go; }
     }
 
+    // Turn the TV off in a while, whatever is playing (see HomeGuard.setOffTimer). OK steps through
+    // these; with a timer running it goes on from the time left.
+    private static final int[] OFF_MINUTES = {0, 30, 60, 90, 120};
+
+    private String offLabel() {
+        HomeGuard g = HomeGuard.running;
+        int m = g == null ? 0 : g.offTimerMinutes();
+        return Strings.t("TV off in") + ":  " + (m == 0 ? Strings.t("Off") : m + " " + Strings.t("min"));
+    }
+
+    private void nextOffTimer(Row r) {
+        HomeGuard g = HomeGuard.running;
+        if (g == null) return;
+        int now = g.offTimerMinutes(), next = OFF_MINUTES[0];
+        for (int m : OFF_MINUTES) if (m > now) { next = m; break; }
+        g.setOffTimer(next);
+        r.text.setText(offLabel());
+    }
+
     // How long the TV waits without a button press before it goes to sleep. OK steps through these and
     // the panel stays open. Only with: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS
     private static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 120}; // 0: never
@@ -128,6 +147,11 @@ public class ControlCenter extends Activity {
         out.add(new Row(Strings.t("Network"), LineIcon.WIFI, () -> start(new Intent(Settings.ACTION_WIFI_SETTINGS))));
         out.add(new Row(Strings.t("Picture"), LineIcon.PICTURE, () -> start(new Intent(Settings.ACTION_DISPLAY_SETTINGS))));
         out.add(new Row(Strings.t("Sound"), LineIcon.SOUND, () -> start(new Intent(Settings.ACTION_SOUND_SETTINGS))));
+        if (HomeGuard.running != null) {
+            final Row[] off = new Row[1];
+            off[0] = new Row(offLabel(), LineIcon.POWER, () -> nextOffTimer(off[0]));
+            out.add(off[0]);
+        }
         if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) {
             final Row[] sleep = new Row[1];
             sleep[0] = new Row(sleepLabel(), LineIcon.CLOCK, () -> nextSleep(sleep[0]));

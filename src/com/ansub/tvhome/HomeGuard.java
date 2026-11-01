@@ -1,7 +1,10 @@
 package com.ansub.tvhome;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ResolveInfo;
 import android.os.Handler;
 import android.os.Looper;
@@ -35,6 +38,49 @@ public class HomeGuard extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         findOtherHomes();
+        running = this;
+        IntentFilter off = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(screenOff, off, RECEIVER_NOT_EXPORTED);
+        else registerReceiver(screenOff, off);
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        running = null;
+        setOffTimer(0);
+        try { unregisterReceiver(screenOff); } catch (Exception ignored) {}
+        return super.onUnbind(intent);
+    }
+
+    // The off timer from Control Center: "turn the TV off in 30 minutes", for falling asleep in front of
+    // it. Unlike the sleep setting it doesn't wait for the remote to go quiet, so it works while a film
+    // plays. Going to sleep is the accessibility "lock screen" action, which on a TV is standby.
+    static HomeGuard running; // set while the service is on, so Control Center can reach it
+    private long offAt;       // when the TV goes off, or 0
+    private final Runnable sleepNow = () -> {
+        offAt = 0;
+        if (android.os.Build.VERSION.SDK_INT >= 28) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+    };
+    private final Runnable warn = () -> android.widget.Toast.makeText(this,
+            Strings.t("The TV turns off in a minute"), android.widget.Toast.LENGTH_LONG).show();
+    // The TV went off some other way: the timer is done.
+    private final BroadcastReceiver screenOff = new BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) { setOffTimer(0); }
+    };
+
+    void setOffTimer(int minutes) {
+        handler.removeCallbacks(sleepNow);
+        handler.removeCallbacks(warn);
+        offAt = minutes <= 0 ? 0 : System.currentTimeMillis() + minutes * 60_000L;
+        if (offAt == 0) return;
+        handler.postDelayed(sleepNow, minutes * 60_000L);
+        handler.postDelayed(warn, minutes * 60_000L - 60_000L);
+    }
+
+    // Minutes left, rounded up, or 0 when no timer runs.
+    int offTimerMinutes() {
+        if (offAt == 0) return 0;
+        return (int) Math.max(1, (offAt - System.currentTimeMillis() + 59_999) / 60_000);
     }
 
     // Home, Apps, Settings, Guide and the person button, before Android hands them on. On Google TV

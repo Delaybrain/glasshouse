@@ -148,6 +148,7 @@ public class MainActivity extends Activity {
     private FrameLayout root; // the page, inside a vertical scroller
     private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
     private ImageView shelfArt;   // the same art, sharp, at the right of the shelf
+    private InputPreview preview; // in the art's place for HDMI inputs: what's coming in
     private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
@@ -233,6 +234,9 @@ public class MainActivity extends Activity {
         shelfArt.setAlpha(0f);
         int sw = getResources().getDisplayMetrics().widthPixels;
         root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
+        // HDMI inputs show what's coming in, live, where apps show their art.
+        preview = new InputPreview(this, picture -> {});
+        root.addView(preview.view(), at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
 
         shelfTitle = text(px(76), Color.WHITE, semibold);
         shelfTitle.setLetterSpacing(-0.02f);
@@ -292,11 +296,21 @@ public class MainActivity extends Activity {
     }
 
     // An HDMI-CEC device turned on or off (Android adds or removes its input): redraw the pills' dots.
-    // Waits a second, as a device coming up sends several of these at once.
+    // Waits a second, as a device coming up sends several of these at once. A device that just came on
+    // while the home screen is in front gets the focus, and the shelf offers to switch to it.
     private final Runnable inputsSettled = () -> {
+        java.util.Set<String> before = new java.util.HashSet<>(cecDevices.keySet());
+        refreshCecDevices();
+        String on = null;
+        for (String input : cecDevices.keySet()) if (!before.contains(input)) on = input;
+        if (on != null && hasWindowFocus() && movingKey == null) {
+            deviceJustOn = on;
+            focusedKey = on;
+        }
         dirty = true;
         refreshApps();
     };
+    private String deviceJustOn; // the HDMI input whose device was just switched on, until focus moves on
     private final TvInputManager.TvInputCallback inputsChanged = new TvInputManager.TvInputCallback() {
         @Override public void onInputAdded(String id) { changed(); }
         @Override public void onInputRemoved(String id) { changed(); }
@@ -383,6 +397,13 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        preview.stop();
+        shelfKey = null; // so the shelf (and the preview) start again on the way back
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // Rebuild only when apps were installed, removed or updated.
@@ -442,8 +463,9 @@ public class MainActivity extends Activity {
     private String subFor(String key) {
         if (isInput(key)) {
             String device = cecDevices.get(key);
-            return device != null && !device.isEmpty() ? device + "  ·  " + Strings.t("HDMI input")
-                    : Strings.t("HDMI input") + "  ·  " + Strings.t("No device on");
+            if (device != null && !device.isEmpty())
+                return device + "  ·  " + Strings.t(key.equals(deviceJustOn) ? "is on, press OK to watch" : "HDMI input");
+            return Strings.t("HDMI input") + "  ·  " + Strings.t("No device on");
         }
         if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
         String pkg = LIVE.equals(key) ? livePackage() : key;
@@ -537,6 +559,8 @@ public class MainActivity extends Activity {
     private void showOnShelf(String key, String title, String sub, Drawable art) {
         if (shelf == null || key.equals(shelfKey)) return;
         shelfKey = key;
+        if (!key.equals(deviceJustOn)) deviceJustOn = null;
+        preview.preview(isInput(key) ? key : null);
         crossFade(shelf, art == null ? null : shelfWash(fit(art, 160, 52)));
         crossFade(shelfArt, art == null ? null : fit(art, px(ART_W), px(ART_H)));
         shelfArt.animate().alpha(art == null ? 0f : 1f).setDuration(260).start();
@@ -760,17 +784,25 @@ public class MainActivity extends Activity {
                     else glyph.clearColorFilter();
                 }
             }
-            // Lift with a little spring, settle back gently: the tvOS focus feel.
-            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
-                    .translationZ(has ? px(30) : 0).setDuration(has ? 260 : 180)
+            // Lift with a little spring, settle back gently: the tvOS focus feel. Parallax: the tile
+            // arrives tilted the way focus travelled (as if it caught the movement) and swings flat.
+            if (has) {
+                v.setCameraDistance(px(9000));
+                v.setRotationY(-moveX * 9f);
+                v.setRotationX(moveY * 7f);
+            }
+            v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f).rotationX(0).rotationY(0)
+                    .translationZ(has ? px(30) : 0).setDuration(has ? 420 : 180)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
                     .withLayer().start();
             gloss.animate().alpha(has ? 1f : 0f).setDuration(200).start();
             sheen.animate().cancel();
             if (has) {
+                // The light sweeps across in the direction focus moved.
+                boolean back = moveX < 0;
                 sheen.setVisibility(View.VISIBLE);
-                sheen.setTranslationX(-w / 2f);
-                sheen.animate().translationX(w * 1.2f).setDuration(700).setStartDelay(80)
+                sheen.setTranslationX(back ? w * 1.2f : -w / 2f);
+                sheen.animate().translationX(back ? -w / 2f : w * 1.2f).setDuration(700).setStartDelay(80)
                         .setInterpolator(new DecelerateInterpolator())
                         .withEndAction(() -> sheen.setVisibility(View.INVISIBLE)).start();
             } else {
@@ -919,6 +951,7 @@ public class MainActivity extends Activity {
     }
 
     private void open(String key) {
+        preview.stop(); // free the input before its full-screen player wants it
         Intent i;
         if (ADD.equals(key)) {
             showAddMenu(-1);
@@ -1374,6 +1407,23 @@ public class MainActivity extends Activity {
         }
     }
 
+    // Which way the last arrow press went (-1, 0, 1), for the tiles' parallax tilt. Seen here before
+    // focus moves, so the tile that gets focus knows where it came from.
+    private int moveX, moveY;
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent ev) {
+        if (ev.getAction() == KeyEvent.ACTION_DOWN) {
+            switch (ev.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_LEFT: moveX = -1; moveY = 0; break;
+                case KeyEvent.KEYCODE_DPAD_RIGHT: moveX = 1; moveY = 0; break;
+                case KeyEvent.KEYCODE_DPAD_UP: moveX = 0; moveY = -1; break;
+                case KeyEvent.KEYCODE_DPAD_DOWN: moveX = 0; moveY = 1; break;
+            }
+        }
+        return super.dispatchKeyEvent(ev);
+    }
+
     // Remote buttons that reach the home screen because no app is in front. The rest (Home, volume,
     // power, the app buttons) Android handles before they get here.
     @Override
@@ -1528,7 +1578,7 @@ public class MainActivity extends Activity {
         catch (PackageManager.NameNotFoundException e) { return false; }
     }
 
-    private static Intent launchIntent(PackageManager pm, String pkg) {
+    static Intent launchIntent(PackageManager pm, String pkg) {
         Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
         return i != null ? i : pm.getLaunchIntentForPackage(pkg);
     }
@@ -1548,6 +1598,10 @@ public class MainActivity extends Activity {
     // Draws a banner once into a tile-sized bitmap (center-cropped). Some apps ship huge banners
     // that Android 9 refuses to draw ("Canvas: trying to draw too large bitmap"); this also saves RAM.
     private Drawable fit(Drawable d, int w, int h) {
+        return fit(getResources(), d, w, h);
+    }
+
+    static Drawable fit(android.content.res.Resources res, Drawable d, int w, int h) {
         try {
             Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
@@ -1556,7 +1610,7 @@ public class MainActivity extends Activity {
             int dw = Math.round(iw * s), dh = Math.round(ih * s);
             d.setBounds((w - dw) / 2, (h - dh) / 2, (w - dw) / 2 + dw, (h - dh) / 2 + dh);
             d.draw(new Canvas(b));
-            return new BitmapDrawable(getResources(), b);
+            return new BitmapDrawable(res, b);
         } catch (Throwable t) {
             return d;
         }
@@ -1577,6 +1631,11 @@ public class MainActivity extends Activity {
     // name reads, and faded to nothing at the bottom, so it melts into whatever wallpaper is behind.
     // At 160x52 pixels this takes well under a millisecond.
     private Drawable shelfWash(Drawable d) {
+        return wash(getResources(), d, true);
+    }
+
+    // The same wash, for the screensaver too; fadeOut false keeps it whole down to the bottom.
+    static Drawable wash(android.content.res.Resources res, Drawable d, boolean fadeOut) {
         if (!(d instanceof BitmapDrawable)) return d;
         Bitmap b = ((BitmapDrawable) d).getBitmap();
         int w = b.getWidth(), h = b.getHeight();
@@ -1588,7 +1647,7 @@ public class MainActivity extends Activity {
         }
         for (int y = 0; y < h; y++) {
             float fy = (float) y / (h - 1);
-            float alpha = 0.85f * (fy < 0.45f ? 1f : smooth(1f - (fy - 0.45f) / 0.55f));
+            float alpha = !fadeOut ? 1f : 0.85f * (fy < 0.45f ? 1f : smooth(1f - (fy - 0.45f) / 0.55f));
             for (int x = 0; x < w; x++) {
                 // At most 45% brightness, a bit more colour: a white banner (YouTube, Netflix) would
                 // otherwise turn the shelf light grey behind the white name and clock.
@@ -1602,7 +1661,7 @@ public class MainActivity extends Activity {
             }
         }
         b.setPixels(px, 0, w, 0, 0, w, h);
-        BitmapDrawable out = new BitmapDrawable(getResources(), b);
+        BitmapDrawable out = new BitmapDrawable(res, b);
         out.setFilterBitmap(true);
         return out;
     }

@@ -13,7 +13,7 @@ final class Strings {
         "Move", "Replace", "Remove from home", "Uninstall", "App info",
         "Use the arrows to move it, then press OK", "Every app is already here", "Add an app", "Replace %s", "Wallpaper", "TV settings", "Brightness",
         "HDMI input", "All apps", "Live TV", "Control Center", "All settings",
-        "Last opened", "just now", "No device on", "Sleep after", "Off", "min",
+        "Last opened", "just now", "No device on", "Sleep after", "Off", "min", "TV off in", "The TV turns off in a minute", "is on, press OK to watch",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -29,7 +29,7 @@ final class Strings {
             "Verschieben", "Ersetzen", "Vom Startbildschirm entfernen", "Deinstallieren", "App-Info",
             "Mit den Pfeiltasten verschieben, dann OK drücken", "Alle Apps sind schon da", "App hinzufügen", "%s ersetzen", "Hintergrund", "TV-Einstellungen", "Helligkeit",
             "HDMI-Eingang", "Alle Apps", "Live-TV", "Kontrollzentrum", "Alle Einstellungen",
-            "Zuletzt geöffnet", "gerade eben", "kein Gerät eingeschaltet", "Ruhezustand nach", "Aus", "Min.",
+            "Zuletzt geöffnet", "gerade eben", "kein Gerät eingeschaltet", "Ruhezustand nach", "Aus", "Min.", "TV aus in", "Der TV geht in einer Minute aus", "ist an  ·  OK zum Umschalten",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",

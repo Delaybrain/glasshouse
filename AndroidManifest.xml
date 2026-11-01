@@ -68,6 +68,17 @@
             android:taskAffinity="com.ansub.tvhome.control"
             android:excludeFromRecents="true"
             android:launchMode="singleTask" />
+        <!-- The screensaver: pick it in Settings > System > Ambient mode, or with
+             adb shell settings put secure screensaver_components com.ansub.tvhome/.Screensaver -->
+        <service android:name=".Screensaver"
+            android:label="Home: Uhr"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
         <!-- Off until turned on (homeguard.sh): brings this home screen up over Google TV's. -->
         <service android:name=".HomeGuard"
             android:label="Home: Home-Taste"
