@@ -326,8 +326,8 @@ public class MainActivity extends Activity {
         moreLeft = arrow(LineIcon.PREV);
         moreRight = arrow(LineIcon.NEXT);
 
-        // Only a clock at the top right, like Apple TV. Bluetooth, sound and picture live in Control Center;
-        // a network icon shows left of the clock only while the TV is offline.
+        // The clock at the top right, the network icon left of it. Bluetooth, sound and picture live in
+        // Control Center.
         clockView = clock("h:mm", "H:mm", px(CLOCK_SIZE), Color.WHITE, semibold);
         clockView.setFontFeatureSettings("tnum");
         clockView.setIncludeFontPadding(false);
@@ -502,6 +502,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         preview.stop();
+        if (arranging && movingKey == null) stopArrange();
         shelfKey = null; // so the shelf (and the preview) start again on the way back
     }
 
@@ -805,7 +806,7 @@ public class MainActivity extends Activity {
         tiles.clear();
         rowApps.clear();
         movingKey = null;
-        moveHint.setVisibility(View.GONE);
+        showHint(); // still there while arranging
 
         PackageManager pm = getPackageManager();
         int w = px(TILE_W), h = px(TILE_H);
@@ -871,7 +872,7 @@ public class MainActivity extends Activity {
         x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop, false) + px(PILL_GAP);
         addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop, false);
 
-        // A network icon left of the clock, only seen while the TV is offline (see refreshNetwork).
+        // The network icon left of the clock: Wi-Fi, Ethernet or offline (see refreshNetwork).
         // Added last, so the first app keeps first focus.
         int ib = px(ICON_BUTTON), ig = px(ICON_GAP);
         int clockW = Math.round(clockView.getPaint().measureText("00:00")) + 2 * ig;
@@ -1008,6 +1009,21 @@ public class MainActivity extends Activity {
                 if (down) tile(rowApps.get(rowApps.size() - 1)).requestFocus();
                 return true;
             }
+            // Arranging: OK picks this app up (then moveKey has it), Back ends arranging.
+            // Only an OK that went down on this tile counts: the key-up of the OK that chose "Arrange apps"
+            // lands here too, and must not pick up the first app.
+            if (arranging && editable && (ok || code == KeyEvent.KEYCODE_BACK)) {
+                if (down) {
+                    if (ok && ev.getRepeatCount() == 0) okDownKey = key;
+                } else if (!ok) {
+                    stopArrange();
+                } else {
+                    boolean pressed = key.equals(okDownKey) && !ev.isCanceled();
+                    okDownKey = null;
+                    if (pressed) startMove(key);
+                }
+                return true;
+            }
             if (editable && code == KeyEvent.KEYCODE_MENU) {
                 if (!down) showEditMenu(key);
                 return true;
@@ -1088,6 +1104,7 @@ public class MainActivity extends Activity {
             if (has) {
                 focusedKey = key;
                 showOnShelf(key, label, subFor(key), art);
+                if (arranging) stopArrange(); // left the app row
             }
             bg.setColor(has ? Color.WHITE : Style.GLASS);
             bg.setStroke(Math.max(1, px(2)), has ? Color.WHITE : Style.GLASS_STROKE);
@@ -1148,7 +1165,7 @@ public class MainActivity extends Activity {
             // OK sets it down); any app can also be moved by holding OK on it.
             dropdown(tile(ADD), ADD_ITEMS, which -> {
                 if (which == 0) showAddMenu(-1);
-                else if (!rowApps.isEmpty()) startMove(rowApps.get(0));
+                else startArrange();
             });
             return;
         } else if (LIVE.equals(key)) {
@@ -1254,9 +1271,8 @@ public class MainActivity extends Activity {
         int state = networkState();
         if (state == netState) return;
         netState = state;
-        // Only the clock stays at the top right, like Apple TV: the icon (and its focus stop) is there
-        // only while something's wrong.
-        ((View) netIcon.getParent().getParent()).setVisibility(state == OFFLINE ? View.VISIBLE : View.GONE);
+        // Always beside the clock, and it follows the connection by itself: Wi-Fi with its bars, a cable
+        // for Ethernet (LAN), crossed out when offline.
         if (state == ETHERNET) {
             netIcon.setImageDrawable(new LineIcon(LineIcon.ETHERNET));
         } else {
@@ -1701,8 +1717,32 @@ public class MainActivity extends Activity {
         outline.setCornerRadius(px(RADIUS));
         outline.setStroke(px(4), Color.WHITE);
         ((FrameLayout) card).setForeground(outline);
-        moveHint.setVisibility(View.VISIBLE);
+        showHint();
         card.requestFocus();
+    }
+
+    // Arranging ("Arrange apps" under Add app): pick up any app with OK, move it, put it down with OK,
+    // then the next; Back (or leaving the app row) ends it. Holding OK on an app moves just that one.
+    private boolean arranging;
+
+    private void startArrange() {
+        if (rowApps.isEmpty()) return;
+        arranging = true;
+        showHint();
+        View first = tile(rowApps.get(0));
+        if (first != null) first.requestFocus();
+    }
+
+    private void stopArrange() {
+        arranging = false;
+        showHint();
+    }
+
+    // The line above the dock that says what the arrows and OK do right now, if anything special.
+    private void showHint() {
+        if (movingKey != null) moveHint.setText(Strings.t("Use the arrows to move it, then press OK"));
+        else if (arranging) moveHint.setText(Strings.t("Pick an app with OK, move it, OK puts it down. Back: done"));
+        moveHint.setVisibility(movingKey != null || arranging ? View.VISIBLE : View.GONE);
     }
 
     private boolean moveKey(String key, int code, boolean ok, boolean down) {
@@ -1728,7 +1768,7 @@ public class MainActivity extends Activity {
                 movingKey = null;
                 longPressed = false;
                 ((FrameLayout) tile(key)).setForeground(null);
-                moveHint.setVisibility(View.GONE);
+                showHint(); // back to "pick an app" while arranging
                 saveRow();
                 refreshApps();
             }
