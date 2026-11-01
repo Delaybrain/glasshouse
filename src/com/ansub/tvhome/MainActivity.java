@@ -123,7 +123,10 @@ public class MainActivity extends Activity {
     private static final int TONE_ORIGINAL = 0, TONE_LIGHT = 2, TONE_GLASS = 3, TONE_MONO = 4, TONE_SPOTLIGHT = 5;
     // What the top of the page shows ("Status bar" in that menu). Clock and network sit at the top right,
     // the rest is one line at the top left. The off timer shows only while one is set.
-    private static final String[] STATUS_ITEMS = {"Clock", "Network", "Date", "CPU", "RAM", "Download speed", "Off timer"};
+    private static final String[] STATUS_ITEMS = {"Clock", "Network", "Date", "CPU", "RAM", "RAM in GB",
+            "Download speed", "Off timer"};
+    private static final String[] STATUS_LABELS = {"Clock", "Network", "Date", "CPU clock", "RAM usage",
+            "RAM in GB", "Download speed", "Off timer"}; // what the menu calls them; the items are the saved names
     private static final String STATUS_DEFAULT = "Clock,Network,CPU,RAM,Off timer";
     // Android TV 11 and later (Google TV too) has no Display page, but its "Display & Sound" page holds Picture.
     private static final String[] TV_DISPLAY_SOUND = {"com.android.tv.settings",
@@ -840,12 +843,21 @@ public class MainActivity extends Activity {
         return i >= 0 ? i : 1; // dark, like the rest of the page
     }
 
-    // Original, dark or light, each with a small swatch. OK redraws the tiles in that tone.
+    // The looks, each with a small swatch, ticked when chosen; under them, whether coloured backgrounds
+    // (Prime's blue) change too. OK redraws the tiles at once, behind the open panel.
     private void showTiles() {
         final int size = px(40);
-        panel(Strings.t("Tiles"), Arrays.asList(translated(TILE_TONES)), pos -> {
+        List<String> rows = new ArrayList<>(Arrays.asList(translated(TILE_TONES)));
+        rows.add(Strings.t("Brand colours too"));
+        final int brandRow = TILE_TONES.length;
+        final boolean[] on = new boolean[rows.size()];
+        on[tileTone()] = true;
+        on[brandRow] = brandColoursToo();
+        panel(Strings.t("Tiles"), rows, pos -> {
             GradientDrawable swatch;
-            if (pos == TONE_ORIGINAL) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            if (pos == brandRow) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[] {0xFF0A7BFF, 0xFF0A7BFF, 0xFF0B0C10, 0xFF0B0C10});
+            else if (pos == TONE_ORIGINAL) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[] {0xFFE50914, Color.WHITE, 0xFF0A7BFF});
             else if (pos == TONE_MONO) swatch = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[] {0xFFD0D0D0, 0xFF0B0C10});
@@ -860,9 +872,13 @@ public class MainActivity extends Activity {
             swatch.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
             swatch.setSize(size, size);
             return swatch;
-        }, size, tileTone(), pos -> {}, which -> {
-            if (which == tileTone()) return;
-            getSharedPreferences(PREFS, 0).edit().putString("tiles", TILE_TONES[which]).apply();
+        }, size, -1, null, on, which -> {
+            if (which == brandRow) {
+                getSharedPreferences(PREFS, 0).edit().putBoolean("tilesBrand", on[brandRow]).apply();
+            } else {
+                for (int i = 0; i < brandRow; i++) on[i] = i == which; // one look at a time
+                getSharedPreferences(PREFS, 0).edit().putString("tiles", TILE_TONES[which]).apply();
+            }
             shelfCache.clear();
             shelfKey = null;
             buildTiles();
@@ -872,7 +888,8 @@ public class MainActivity extends Activity {
     // One look for all tiles: a banner on a white, grey or black background gets its lightness flipped
     // when that background is the wrong way round for the tone, with its colours kept: white goes black,
     // black lettering goes white, Netflix's red stays red. A coloured background (Prime's blue) is the
-    // app's own colour, so it stays. Done once per banner, at most 640x360, when the tiles are built.
+    // app's own colour: it stays, unless "Brand colours too" is on. Done once per banner, at most 640x360,
+    // when the tiles are built (so apps installed later get the look as well).
     private Drawable toned(Drawable d) {
         int tone = tileTone();
         if (d == null || tone == TONE_ORIGINAL) return d;
@@ -907,34 +924,70 @@ public class MainActivity extends Activity {
             bg[ch] = v[n / 2];
         }
         int max = Math.max(bg[0], Math.max(bg[1], bg[2])), min = Math.min(bg[0], Math.min(bg[1], bg[2]));
-        if (max - min > 40) return fitted; // coloured: the app's own colour
-        boolean flip = (max + min > 255) != (tone == TONE_LIGHT); // light background but dark wanted, or the other way
+        boolean coloured = max - min > 40; // a brand's own colour, like Prime's blue
+        if (coloured && !brandColoursToo()) return fitted;
         int back = Color.rgb(bg[0], bg[1], bg[2]);
+        boolean flip = !coloured && (max + min > 255) != (tone == TONE_LIGHT); // light but dark wanted, or the other way
         if (flip) {
             for (int i = 0; i < px.length; i++) px[i] = flipLightness(px[i]);
             back = flipLightness(back);
         }
-        // Glass: the (now dark) background goes see-through, so the logo sits on the dock's glass. Edge
+        if (!coloured && !flip && tone != TONE_GLASS) return fitted;
+        // Glass, or a coloured background going: the background goes see-through, leaving the logo. Edge
         // pixels, part logo and part background, keep just the logo's part, so the edges stay smooth.
-        if (tone == TONE_GLASS) {
-            int br = Color.red(back), bgg = Color.green(back), bb = Color.blue(back);
-            for (int i = 0; i < px.length; i++) {
-                int c = px[i];
-                int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
-                int dist = Math.max(Math.abs(r - br), Math.max(Math.abs(g - bgg), Math.abs(bl - bb)));
-                float a = Math.min(1f, dist / 48f);
-                if (a >= 1f) continue;
-                if (a <= 0f) { px[i] = 0; continue; }
-                r = Math.max(0, Math.min(255, Math.round(br + (r - br) / a)));
-                g = Math.max(0, Math.min(255, Math.round(bgg + (g - bgg) / a)));
-                bl = Math.max(0, Math.min(255, Math.round(bb + (bl - bb) / a)));
-                px[i] = (Math.round((c >>> 24) * a) << 24) | (r << 16) | (g << 8) | bl;
+        if (coloured || tone == TONE_GLASS) keyOut(px, back);
+        if (coloured) {
+            // The logo was made for its colour: white on Prime's blue stays white on dark, and turns
+            // dark on light. Then it goes onto the tone's own background (glass stays see-through).
+            boolean wantLight = tone == TONE_LIGHT;
+            double sum = 0, weight = 0;
+            for (int c : px) {
+                int a = c >>> 24;
+                int mx = Math.max((c >> 16) & 0xFF, Math.max((c >> 8) & 0xFF, c & 0xFF));
+                int mn = Math.min((c >> 16) & 0xFF, Math.min((c >> 8) & 0xFF, c & 0xFF));
+                sum += a * (mx + mn) / 510.0;
+                weight += a;
             }
-        } else if (!flip) {
-            return fitted;
+            boolean logoLight = weight > 0 && sum / weight > 0.5;
+            int under = wantLight ? 0xFFF4F4F4 : 0xFF0B0B0D;
+            for (int i = 0; i < px.length; i++) {
+                int c = logoLight == wantLight ? flipLightness(px[i]) : px[i];
+                px[i] = tone == TONE_GLASS ? c : over(c, under);
+            }
         }
         b.setPixels(px, 0, w, 0, 0, w, h);
         return fitted;
+    }
+
+    // Makes the background colour see-through: by how far each pixel is from it, with the colour of the
+    // part that isn't background put back, so anti-aliased edges keep their colour.
+    private static void keyOut(int[] px, int back) {
+        int br = Color.red(back), bgg = Color.green(back), bb = Color.blue(back);
+        for (int i = 0; i < px.length; i++) {
+            int c = px[i];
+            int r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
+            int dist = Math.max(Math.abs(r - br), Math.max(Math.abs(g - bgg), Math.abs(bl - bb)));
+            float a = Math.min(1f, dist / 48f);
+            if (a >= 1f) continue;
+            if (a <= 0f) { px[i] = 0; continue; }
+            r = Math.max(0, Math.min(255, Math.round(br + (r - br) / a)));
+            g = Math.max(0, Math.min(255, Math.round(bgg + (g - bgg) / a)));
+            bl = Math.max(0, Math.min(255, Math.round(bb + (bl - bb) / a)));
+            px[i] = (Math.round((c >>> 24) * a) << 24) | (r << 16) | (g << 8) | bl;
+        }
+    }
+
+    // c drawn over an opaque colour.
+    private static int over(int c, int under) {
+        int a = c >>> 24;
+        int r = (((c >> 16) & 0xFF) * a + ((under >> 16) & 0xFF) * (255 - a)) / 255;
+        int g = (((c >> 8) & 0xFF) * a + ((under >> 8) & 0xFF) * (255 - a)) / 255;
+        int b = ((c & 0xFF) * a + (under & 0xFF) * (255 - a)) / 255;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+
+    private boolean brandColoursToo() {
+        return getSharedPreferences(PREFS, 0).getBoolean("tilesBrand", false);
     }
 
     // Lightness to 1 - lightness, hue and colour strength kept: white and black swap, red stays red.
@@ -1492,7 +1545,7 @@ public class MainActivity extends Activity {
     private void showStatusItems() {
         final boolean[] on = new boolean[STATUS_ITEMS.length];
         for (int i = 0; i < on.length; i++) on[i] = statusOn(STATUS_ITEMS[i]);
-        panel(Strings.t("Status bar"), Arrays.asList(translated(STATUS_ITEMS)), null, 0, -1, null, on, which -> {
+        panel(Strings.t("Status bar"), Arrays.asList(translated(STATUS_LABELS)), null, 0, -1, null, on, which -> {
             List<String> keep = new ArrayList<>();
             for (int i = 0; i < on.length; i++) if (on[i]) keep.add(STATUS_ITEMS[i]);
             getSharedPreferences(PREFS, 0).edit().putString("status", android.text.TextUtils.join(",", keep)).apply();
@@ -1520,11 +1573,13 @@ public class MainActivity extends Activity {
         wrap.requestLayout();
     }
 
-    // The status line, every two seconds while the home screen is in front. CPU is the share of time
-    // the cores were busy since the last look (from /proc/stat; where Android doesn't let apps read that,
-    // the cores' speed instead), RAM the share in use, the download speed for the whole TV.
+    // The status line, every two seconds while the home screen is in front: the CPU's speed, RAM as the
+    // share in use and/or in GB, the download speed for the whole TV. CPU use in percent can't be had:
+    // Android keeps /proc/stat, /proc/uptime, /proc/loadavg and the cgroup's cpu.stat from apps, the
+    // cpuinfo service only has a minutes-old average, and this chip keeps no idle statistics (all tested).
+    // Its "ondemand" governor raises the speed with the load, so the speed is the next best thing.
     private TextView statusLine;
-    private long cpuBusy = -1, cpuAll, rxBytes = -1, rxAt;
+    private long rxBytes = -1, rxAt;
     private final Runnable statusTick = new Runnable() {
         @Override public void run() {
             updateStatus();
@@ -1534,7 +1589,6 @@ public class MainActivity extends Activity {
 
     private void restartStatus() {
         root.removeCallbacks(statusTick);
-        cpuBusy = -1;
         rxBytes = -1;
         statusTick.run();
     }
@@ -1545,15 +1599,18 @@ public class MainActivity extends Activity {
         if (statusOn("Date"))
             parts.add(android.text.format.DateFormat.format(Strings.datePattern(), System.currentTimeMillis()).toString());
         if (statusOn("CPU")) {
-            String cpu = cpuText(loc);
-            if (cpu != null) parts.add(cpu);
+            String clock = cpuClock(loc);
+            if (clock != null) parts.add(clock);
         }
-        if (statusOn("RAM")) {
+        if (statusOn("RAM") || statusOn("RAM in GB")) {
             android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
             am.getMemoryInfo(mi);
-            if (mi.totalMem > 0)
-                parts.add(String.format(loc, "RAM %d %%", Math.round(100.0 * (mi.totalMem - mi.availMem) / mi.totalMem)));
+            long used = mi.totalMem - mi.availMem;
+            if (mi.totalMem > 0 && statusOn("RAM"))
+                parts.add(String.format(loc, "RAM %d %%", Math.round(100.0 * used / mi.totalMem)));
+            if (mi.totalMem > 0 && statusOn("RAM in GB"))
+                parts.add(String.format(loc, "RAM %.1f / %.1f GB", used / 1e9, mi.totalMem / 1e9));
         }
         if (statusOn("Download speed")) {
             long rx = android.net.TrafficStats.getTotalRxBytes(), now = android.os.SystemClock.elapsedRealtime();
@@ -1573,24 +1630,8 @@ public class MainActivity extends Activity {
         if (!line.contentEquals(statusLine.getText())) statusLine.setText(line);
     }
 
-    private boolean cpuStatBlocked; // Android 8 and later keep /proc/stat (and /proc/loadavg) from apps
-
-    private String cpuText(java.util.Locale loc) {
-        if (!cpuStatBlocked) try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/proc/stat"))) {
-            String[] f = r.readLine().trim().split("\\s+"); // cpu user nice system idle iowait irq softirq ...
-            long all = 0;
-            for (int i = 1; i < f.length && i <= 8; i++) all += Long.parseLong(f[i]);
-            long busy = all - Long.parseLong(f[4]) - Long.parseLong(f[5]);
-            String out = null;
-            if (cpuBusy >= 0 && all > cpuAll)
-                out = String.format(loc, "CPU %d %%", Math.round(100.0 * (busy - cpuBusy) / (all - cpuAll)));
-            cpuBusy = busy;
-            cpuAll = all;
-            return out;
-        } catch (Exception notAllowed) {
-            cpuStatBlocked = true;
-        }
-        // The cores' current speed, averaged, as the next best thing.
+    // The cores' current speed, averaged.
+    private static String cpuClock(java.util.Locale loc) {
         long sum = 0;
         int n = 0;
         for (int i = 0; i < 16; i++) {
@@ -1762,7 +1803,7 @@ public class MainActivity extends Activity {
                 if (checks != null) {
                     tick = checks[pos] ? new LineIcon(LineIcon.CHECK) : new ColorDrawable(Color.TRANSPARENT);
                     tick.setBounds(0, 0, px(36), px(36));
-                    t.setCompoundDrawableTintList(ink); // dark on the white selector, like the text
+                    if (checks[pos]) tick.setTintList(ink); // dark on the white selector, like the text; not the swatches
                 }
                 t.setCompoundDrawablesRelative(icons[pos], null, tick, null);
                 t.setCompoundDrawablePadding(px(24));
@@ -1772,8 +1813,8 @@ public class MainActivity extends Activity {
         list.setOnItemClickListener((parent, v, pos, id) -> {
             if (checks != null) {
                 checks[pos] = !checks[pos];
+                pick.at(pos); // may set other rows too
                 ((BaseAdapter) list.getAdapter()).notifyDataSetChanged();
-                pick.at(pos);
                 return;
             }
             d.dismiss();

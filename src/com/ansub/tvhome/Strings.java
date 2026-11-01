@@ -16,6 +16,7 @@ final class Strings {
         "Last opened", "just now", "No device on", "Sleep after", "Off", "min", "TV off in", "The TV turns off in a minute", "is on, press OK to watch", "Picture", "No signal", "Screensaver after", "Screensaver", "Arrange apps", "Pick an app with OK, move it, OK puts it down. Back: done",
         "Tiles", "Original", "Dark", "Light",
         "Glass", "Black & white", "Spotlight", "Status bar", "Clock", "Date", "Download speed", "Off timer",
+        "CPU clock", "RAM usage", "RAM in GB", "Brand colours too",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -34,6 +35,7 @@ final class Strings {
             "Zuletzt geöffnet", "gerade eben", "kein Gerät eingeschaltet", "Ruhezustand nach", "Aus", "Min.", "TV aus in", "Der TV geht in einer Minute aus", "ist an  ·  OK zum Umschalten", "Bild erkannt", "Kein Signal", "Bildschirmschoner nach", "Bildschirmschoner", "Apps anordnen", "Mit OK eine App wählen, mit den Pfeilen verschieben, OK legt sie ab. Zurück: fertig",
             "Kacheln", "Original", "Dunkel", "Hell",
             "Glas", "Schwarzweiß", "Spotlight", "Statusleiste", "Uhr", "Datum", "Download-Rate", "Ausschalt-Timer",
+            "CPU-Takt", "RAM-Auslastung", "RAM in GB", "Markenfarben mitfärben",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",
