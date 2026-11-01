@@ -154,7 +154,6 @@ public class MainActivity extends Activity {
     // HDMI input -> whether its last preview showed a picture. CEC only knows devices that speak it (a
     // PC doesn't); this is the next best thing, learnt each time a pill is looked at.
     private final java.util.Map<String, Boolean> signal = new java.util.HashMap<>();
-    private View shelfScrim;      // darkens the shelf's left and fades it into the wallpaper below
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
     private final java.util.Map<String, Long> lastUsed = new java.util.HashMap<>(); // package -> last seen
@@ -182,6 +181,7 @@ public class MainActivity extends Activity {
     // uninstalled from the menu is gone only after Android's prompt has closed), so catch up then.
     private final BroadcastReceiver packagesChanged = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
+            shelfCache.clear(); // an updated app may have new art
             dirty = true;
             refreshApps();
         }
@@ -239,10 +239,7 @@ public class MainActivity extends Activity {
         // that one draws past the view's edges, as a band under the shelf.
         FrameLayout shelfFrame = new FrameLayout(this);
         shelfFrame.addView(shelf, new FrameLayout.LayoutParams(-1, -1));
-        shelfScrim = new View(this);
-        shelfFrame.addView(shelfScrim, new FrameLayout.LayoutParams(-1, -1));
         root.addView(shelfFrame, at(0, 0, -1, px(SHELF_H)));
-        updateScrim(WALLPAPERS[wallpaper()]);
 
         shelfArt = new ImageView(this);
         shelfArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -251,7 +248,7 @@ public class MainActivity extends Activity {
         artShape.setColor(0xFF1E1A1C);
         shelfArt.setBackground(artShape);
         shelfArt.setClipToOutline(true);
-        shelfArt.setElevation(px(24));
+        // No elevation shadow: real shadows are re-drawn every frame and this TV's GPU can't afford them.
         shelfArt.setAlpha(0f);
         int sw = getResources().getDisplayMetrics().widthPixels;
         root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
@@ -643,18 +640,32 @@ public class MainActivity extends Activity {
     }
 
     private void showWallpaper(int i) {
-        wallpaperView.setBackground(background(WALLPAPERS[i]));
-        updateScrim(WALLPAPERS[i]);
+        wallpaperView.setBackground(baked(background(WALLPAPERS[i])));
     }
 
-    // A light shade at the top, so the clock reads on bright art. The wash fades out on its own at the
-    // bottom and darkens on the left (see shelfWash), so nothing here has an edge.
-    private void updateScrim(int[] c) {
-        if (shelfScrim == null) return;
-        GradientDrawable top = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0x59000000, 0x00000000, 0x00000000, 0x00000000});
-        top.setDither(true);
-        shelfScrim.setBackground(top);
+    // The wallpaper's gradients, and a light shade at the top for the clock, drawn once into a
+    // quarter-size bitmap, shown stretched: the same look, but the GPU just copies a picture instead of
+    // working out four full-screen gradients (two of them radial) for every frame, which made moving
+    // through the tiles stutter on this TV. (The shelf's wash carries its own shade, see shelfWash.)
+    private Drawable baked(Drawable d) {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int w = dm.widthPixels, h = dm.heightPixels;
+        try {
+            Bitmap b = Bitmap.createBitmap(w / 4, h / 4, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            c.scale(0.25f, 0.25f);
+            d.setBounds(0, 0, w, h);
+            d.draw(c);
+            GradientDrawable top = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[] {0x59000000, 0x00000000, 0x00000000, 0x00000000});
+            top.setBounds(0, 0, w, px(SHELF_H));
+            top.draw(c);
+            BitmapDrawable out = new BitmapDrawable(getResources(), b);
+            out.setFilterBitmap(true);
+            return out;
+        } catch (Throwable t) {
+            return d;
+        }
     }
 
     // Shows a tile on the top shelf: a wash of its colours, its art sharp at the right, and its name.
@@ -664,8 +675,9 @@ public class MainActivity extends Activity {
         shelfKey = key;
         if (!key.equals(deviceJustOn)) deviceJustOn = null;
         preview.preview(isInput(key) ? key : null);
-        crossFade(shelf, art == null ? null : shelfWash(fit(art, 160, 52)));
-        crossFade(shelfArt, art == null ? null : fit(art, px(ART_W), px(ART_H)));
+        Drawable[] made = art == null ? null : shelfFor(key, art);
+        crossFade(shelf, made == null ? null : made[0]);
+        crossFade(shelfArt, made == null ? null : made[1]);
         shelfArt.animate().alpha(art == null ? 0f : 1f).setDuration(260).start();
         if (art != null) {
             shelfArt.setScaleX(0.97f);
@@ -891,7 +903,7 @@ public class MainActivity extends Activity {
             }
             // Lift with a little spring, settle back gently: the tvOS focus feel.
             v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
-                    .translationZ(has ? px(30) : 0).setDuration(has ? 260 : 180)
+                    .setDuration(has ? 260 : 180)
                     .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
                     .withLayer().start();
             gloss.animate().alpha(has ? 1f : 0f).setDuration(200).start();
@@ -1713,6 +1725,24 @@ public class MainActivity extends Activity {
         }
     }
 
+    // Each tile's wash and sharp art, made once: making and uploading them on every focus change made
+    // moving along the tiles stutter. New drawables over the same bitmaps, so two fades can share one.
+    private final java.util.Map<String, Drawable[]> shelfCache = new java.util.HashMap<>();
+
+    private Drawable[] shelfFor(String key, Drawable art) {
+        Drawable[] made = shelfCache.get(key);
+        if (made == null) {
+            made = new Drawable[] {shelfWash(fit(art, 160, 52)), fit(art, px(ART_W), px(ART_H))};
+            shelfCache.put(key, made);
+        }
+        return new Drawable[] {fresh(made[0]), fresh(made[1])};
+    }
+
+    private static Drawable fresh(Drawable d) {
+        Drawable.ConstantState s = d.getConstantState();
+        return s == null ? d : s.newDrawable();
+    }
+
     private void crossFade(ImageView v, Drawable next) {
         if (next == null) next = new ColorDrawable(Color.TRANSPARENT);
         Drawable prev = v.getDrawable();
@@ -1745,10 +1775,12 @@ public class MainActivity extends Activity {
         for (int y = 0; y < h; y++) {
             float fy = (float) y / (h - 1);
             float alpha = !fadeOut ? 1f : 0.85f * (fy < 0.45f ? 1f : smooth(1f - (fy - 0.45f) / 0.55f));
+            // On the shelf, a shade at the top for the clock (it used to be a layer of its own).
+            float top = !fadeOut ? 1f : 0.65f + 0.35f * smooth(Math.min(1f, fy / 0.33f));
             for (int x = 0; x < w; x++) {
                 // At most 45% brightness, a bit more colour: a white banner (YouTube, Netflix) would
                 // otherwise turn the shelf light grey behind the white name and clock.
-                float light = 0.45f * (0.7f + 0.3f * smooth(Math.min(1f, (float) x / (w * 0.6f))));
+                float light = top * 0.45f * (0.7f + 0.3f * smooth(Math.min(1f, (float) x / (w * 0.6f))));
                 int c = px[y * w + x];
                 float r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, bl = c & 0xFF;
                 float lum = 0.299f * r + 0.587f * g + 0.114f * bl;
