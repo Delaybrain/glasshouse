@@ -149,7 +149,8 @@ public class MainActivity extends Activity {
     private ImageView shelf;      // the focused app's art, drawn tiny and stretched, so it reads as a blur
     private ImageView shelfArt;   // the same art, sharp, at the right of the shelf
     private InputPreview preview; // in the art's place for HDMI inputs: what's coming in
-    private View wallpaperView;   // the wallpaper, behind everything
+    private View wallpaperView;   // the wallpaper, behind everything but the HDMI preview
+    private View dimView;         // darkens the HDMI preview's picture, so the page on top stays readable
     // HDMI input -> whether its last preview showed a picture. CEC only knows devices that speak it (a
     // PC doesn't); this is the next best thing, learnt each time a pill is looked at.
     private final java.util.Map<String, Boolean> signal = new java.util.HashMap<>();
@@ -202,10 +203,14 @@ public class MainActivity extends Activity {
         saveConfig(getIntent());
         loadFonts();
         scale = getResources().getDisplayMetrics().widthPixels / 1920f;
-        // The wallpaper is a view under the page, not the window's background: the HDMI preview cuts a
-        // hole through the window for its picture, and a window background went with it, whole.
+        // The wallpaper is a view under the page, not the window's background, so it can fade out and
+        // show the HDMI preview's live picture underneath (see onPicture).
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
         wallpaperView = new View(this);
+        dimView = new View(this);
+        dimView.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0xB3000000, 0x66000000, 0xB3000000}));
+        dimView.setAlpha(0f);
         showWallpaper(wallpaper());
 
         ScrollView scroller = new ScrollView(this);
@@ -242,9 +247,11 @@ public class MainActivity extends Activity {
         shelfArt.setAlpha(0f);
         int sw = getResources().getDisplayMetrics().widthPixels;
         root.addView(shelfArt, at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
-        // HDMI inputs show what's coming in, live, where apps show their art.
-        preview = new InputPreview(this, this::onSignal);
-        root.addView(preview.view(), at(sw - px(MARGIN) - px(ART_W), px(ART_TOP), px(ART_W), px(ART_H)));
+        // HDMI inputs show what's coming in, live, behind the whole page.
+        preview = new InputPreview(this, new InputPreview.Listener() {
+            @Override public void onSignal(String inputId, boolean picture) { MainActivity.this.onSignal(inputId, picture); }
+            @Override public void onPicture(boolean showing) { MainActivity.this.onPicture(showing); }
+        });
 
         shelfTitle = text(px(76), Color.WHITE, semibold);
         shelfTitle.setLetterSpacing(-0.02f);
@@ -282,7 +289,9 @@ public class MainActivity extends Activity {
         root.addView(moveHint, at(px(MARGIN), px(ROW1_TOP - 64), -2, -2));
 
         FrameLayout screen = new FrameLayout(this);
+        screen.addView(preview.view(), new FrameLayout.LayoutParams(-1, -1)); // under everything
         screen.addView(wallpaperView, new FrameLayout.LayoutParams(-1, -1));
+        screen.addView(dimView, new FrameLayout.LayoutParams(-1, -1));
         screen.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
         setContentView(screen);
         showRequested(getIntent());
@@ -506,6 +515,12 @@ public class MainActivity extends Activity {
 
     // The preview found out whether an input sends a picture: update its dot and the shelf's line.
     // Only redraws when that changed, and only while that input is still the one in focus.
+    // The HDMI preview has a picture (or lost it): the wallpaper fades out to let it through, dimmed.
+    private void onPicture(boolean showing) {
+        wallpaperView.animate().alpha(showing ? 0f : 1f).setDuration(350).start();
+        dimView.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
+    }
+
     private void onSignal(String inputId, boolean picture) {
         if (Boolean.valueOf(picture).equals(signal.get(inputId))) return;
         signal.put(inputId, picture);
@@ -558,7 +573,12 @@ public class MainActivity extends Activity {
         GradientDrawable top = radial(c[3], 0.08f, -0.12f, px(1250));
         GradientDrawable bottom = radial(c[4], 1.0f, 1.1f, px(1000));
         for (GradientDrawable g : new GradientDrawable[] {base, top, bottom}) g.setDither(true);
-        return new LayerDrawable(new Drawable[] {base, top, bottom});
+        LayerDrawable wallpaper = new LayerDrawable(new Drawable[] {base, top, bottom});
+        // Opaque, as it is (the base gradient is solid): left to itself it reports "translucent" for its
+        // soft glows, and once the HDMI preview shows a picture, this TV then leaves the whole
+        // background out as see-through, black.
+        wallpaper.setOpacity(android.graphics.PixelFormat.OPAQUE);
+        return wallpaper;
     }
 
     // The saved wallpaper, as an index into WALLPAPERS (Graphite, the most Apple-like, if none is saved).
