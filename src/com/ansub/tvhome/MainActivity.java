@@ -164,6 +164,18 @@ public class MainActivity extends Activity {
     private android.widget.HorizontalScrollView appScroll; // the app row, scrolling sideways
     private FrameLayout appStrip; // the app tiles, in appScroll
     private int stripX, stripY;   // where appScroll sits, so tiles can be placed inside it
+    private ImageView moreLeft, moreRight; // ‹ › beside the app row when apps are out of sight
+    private static final int ROW_GROW = 16, ARROW = 24; // room for a focused tile to grow; arrow size
+
+    private ImageView arrow(int[] icon) {
+        ImageView v = new ImageView(this);
+        LineIcon line = new LineIcon(icon);
+        line.setAlpha(0xB8); // Style.INK_2
+        v.setImageDrawable(line);
+        v.setAlpha(0f);
+        root.addView(v, at(0, 0, 0, 0)); // placed by buildTiles
+        return v;
+    }
     private LinearLayout liveBadge; // "● LIVE · 1080p" at the top right while an HDMI picture shows
     private TextView liveText;
     private TextClock clockView;
@@ -307,8 +319,11 @@ public class MainActivity extends Activity {
         appScroll.setSmoothScrollingEnabled(true);
         appStrip = new FrameLayout(this);
         appStrip.setClipChildren(false);
+        appStrip.setClipToPadding(false); // the padding after the last app is room for it to grow into
         appScroll.addView(appStrip, new FrameLayout.LayoutParams(-2, -1));
         root.addView(appScroll, at(0, 0, 0, 0)); // placed by buildTiles
+        moreLeft = arrow(LineIcon.PREV);
+        moreRight = arrow(LineIcon.NEXT);
 
         // Only a clock at the top right, like Apple TV. Bluetooth, sound and picture live in Control Center;
         // a network icon shows left of the clock only while the TV is offline.
@@ -804,11 +819,17 @@ public class MainActivity extends Activity {
         // The row's window: inside the dock's edges, tall enough for a focused tile to grow and for
         // its name under it.
         int sw = getResources().getDisplayMetrics().widthPixels;
-        stripX = px(DOCK_X + Style.STROKE);
+        // Just wider than six tiles, by the room a focused tile grows into: apps further along stay out
+        // of sight (no half app at the edge), and the dock's margin beside it is free for the arrows.
+        stripX = px(TILE_LEFT - ROW_GROW);
         stripY = gridTop - px(30);
         appScroll.setLayoutParams(at(stripX, stripY, sw - 2 * stripX, h + px(30) + px(PILL_ROOM - 10)));
         appStrip.setPadding(0, 0, px(TILE_LEFT) - stripX, 0); // the last app ends as far in as the first starts
         appScroll.scrollTo(0, 0);
+        int arrowY = gridTop + h / 2 - px(ARROW) / 2;
+        moreLeft.setLayoutParams(at(px(DOCK_X) + (stripX - px(DOCK_X) - px(ARROW)) / 2, arrowY, px(ARROW), px(ARROW)));
+        moreRight.setLayoutParams(at(sw - stripX + (stripX - px(DOCK_X) - px(ARROW)) / 2, arrowY, px(ARROW), px(ARROW)));
+        appScroll.post(() -> showArrows(0));
         int dockBottom = pillTop + px(PILL_H) + px(DOCK_PAD);
         ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = px(DOCK_TOP) - px(48);
         root.setMinimumHeight(dockBottom + px(DOCK_X)); // as far from the bottom as from the sides
@@ -1639,7 +1660,17 @@ public class MainActivity extends Activity {
         int x = appScroll.getScrollX();
         if (gridX(i) - x < gridX(0)) x = gridX(i) - gridX(0);
         if (gridX(i) + tileW - x > visibleRight) x = gridX(i) + tileW - visibleRight;
-        appScroll.smoothScrollTo(Math.max(0, x), 0);
+        x = Math.max(0, x);
+        appScroll.smoothScrollTo(x, 0);
+        showArrows(x);
+    }
+
+    // ‹ and › beside the app row while there are apps out of sight that way. scrollX is where the
+    // row is going, as it may still be sliding there.
+    private void showArrows(int scrollX) {
+        int max = Math.max(0, appStrip.getWidth() - appScroll.getWidth());
+        moreLeft.animate().alpha(scrollX > 0 ? 1f : 0f).setDuration(200).start();
+        moreRight.animate().alpha(scrollX < max ? 1f : 0f).setDuration(200).start();
     }
 
     // Where app number i sits in the app row (inside appStrip).

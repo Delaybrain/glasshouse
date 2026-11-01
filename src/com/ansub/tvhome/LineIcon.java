@@ -21,6 +21,8 @@ final class LineIcon extends Drawable {
             1, 160, 30};
     static final int[] PLUS ={0, 120, 50, 1, 120, 190, 0, 50, 120, 1, 190, 120};
     static final int[] CLOCK = {3, 120, 120, 85, 0, 120, 70, 1, 120, 120, 1, 155, 140};
+    static final int[] NEXT = {0, 90, 50, 1, 160, 120, 1, 90, 190};
+    static final int[] PREV = {0, 150, 50, 1, 80, 120, 1, 150, 190};
     static final int[] POWER = {4, 120, 130, 75, -60, 300, 0, 120, 40, 1, 120, 120};
     static final int[] WIFI = {4, 120, 195, 135, 225, 90, 4, 120, 195, 92, 225, 90, 4, 120, 195, 50, 225, 90,
             3, 120, 195, 4};
