@@ -2,6 +2,7 @@ package com.ansub.tvhome;
 
 import android.content.Context;
 import android.media.tv.TvContract;
+import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.os.Handler;
 import android.os.Looper;
@@ -51,7 +52,29 @@ final class InputPreview {
             @Override public void onConnectionFailed(String inputId) {
                 android.util.Log.w("InputPreview", "can't connect to " + inputId);
             }
+            // The resolution is often only known a moment after the picture: tell the page again.
+            @Override public void onTracksChanged(String inputId, java.util.List<TvTrackInfo> tracks) {
+                if (inputId.equals(tuned) && showing) listener.onPicture(true);
+            }
         });
+    }
+
+    // What's coming in, like "1080p · 60 Hz", from the input's video track; null if the TV doesn't say.
+    String videoInfo() {
+        try {
+            java.util.List<TvTrackInfo> tracks = view.getTracks(TvTrackInfo.TYPE_VIDEO);
+            if (tracks == null || tracks.isEmpty()) return null;
+            String selected = view.getSelectedTrack(TvTrackInfo.TYPE_VIDEO);
+            TvTrackInfo video = tracks.get(0);
+            for (TvTrackInfo t : tracks) if (t.getId().equals(selected)) video = t;
+            int h = video.getVideoHeight();
+            if (h <= 0) return null;
+            String size = h >= 2000 ? "4K" : h + "p";
+            float fps = video.getVideoFrameRate();
+            return fps > 0 ? size + "  ·  " + Math.round(fps) + " Hz" : size;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     View view() {

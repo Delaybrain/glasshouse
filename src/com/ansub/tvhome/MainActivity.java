@@ -161,6 +161,9 @@ public class MainActivity extends Activity {
     private final java.util.Map<String, String> cecDevices = new java.util.HashMap<>(); // HDMI input -> device on it
     private String mostRecent;    // the app used last, if usage stats are allowed
     private View dock;            // the glass panel the tiles sit on
+    private View dockShade;       // darkens the dock over a live HDMI picture
+    private LinearLayout liveBadge; // "● LIVE · 1080p" at the top right while an HDMI picture shows
+    private TextView liveText;
     private TextClock clockView;
     private int tileW, tileH, gridTop; // app grid geometry, set by buildTiles
     private final List<View> tiles = new ArrayList<>();
@@ -208,8 +211,13 @@ public class MainActivity extends Activity {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
         wallpaperView = new View(this);
         dimView = new View(this);
-        dimView.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xB3000000, 0x66000000, 0xB3000000}));
+        // Darker where the page has something to read (the name on the left, the dock at the bottom),
+        // lighter at the top right, so the picture stays bright where nothing covers it.
+        GradientDrawable dimSide = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0x99000000, 0x33000000, 0x00000000});
+        GradientDrawable dimDown = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0x40000000, 0x0D000000, 0x8C000000, 0xE6000000});
+        dimView.setBackground(new LayerDrawable(new Drawable[] {dimSide, dimDown}));
         dimView.setAlpha(0f);
         showWallpaper(wallpaper());
 
@@ -265,6 +273,16 @@ public class MainActivity extends Activity {
         shelfSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(shelfSub, at(px(MARGIN), px(SUB_TOP), textW, -2));
 
+        // Under the glass: a dark tint that comes in over a live HDMI picture, so the tiles don't get
+        // lost in a moving image.
+        dockShade = new View(this);
+        GradientDrawable shade = new GradientDrawable();
+        shade.setCornerRadius(px(DOCK_RADIUS));
+        shade.setColor(0x73000000);
+        dockShade.setBackground(shade);
+        dockShade.setAlpha(0f);
+        root.addView(dockShade, at(0, 0, 0, 0)); // placed by buildTiles, with the dock
+
         dock = new View(this);
         GradientDrawable glass = new GradientDrawable();
         glass.setCornerRadius(px(DOCK_RADIUS));
@@ -282,6 +300,33 @@ public class MainActivity extends Activity {
         cp.topMargin = px(CLOCK_TOP);
         cp.rightMargin = px(MARGIN);
         root.addView(clockView, cp);
+
+        // "● LIVE · 1080p · 60 Hz", where an app's art goes, while an HDMI input's picture is behind the page.
+        liveBadge = new LinearLayout(this);
+        liveBadge.setOrientation(LinearLayout.HORIZONTAL);
+        liveBadge.setGravity(Gravity.CENTER_VERTICAL);
+        liveBadge.setPadding(px(22), 0, px(24), 0);
+        GradientDrawable badge = new GradientDrawable();
+        badge.setCornerRadius(px(24));
+        badge.setColor(0x66000000);
+        badge.setStroke(Math.max(1, px(2)), 0x33FFFFFF);
+        liveBadge.setBackground(badge);
+        View redDot = new View(this);
+        GradientDrawable red = new GradientDrawable();
+        red.setShape(GradientDrawable.OVAL);
+        red.setColor(0xFFFF3B30); // Apple's red
+        redDot.setBackground(red);
+        liveBadge.addView(redDot, new LinearLayout.LayoutParams(px(14), px(14)));
+        liveText = text(px(24), Color.WHITE, semibold);
+        liveText.setLetterSpacing(0.06f);
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-2, -2);
+        ll.leftMargin = px(12);
+        liveBadge.addView(liveText, ll);
+        liveBadge.setAlpha(0f);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, px(48), Gravity.TOP | Gravity.END);
+        bp.topMargin = px(ART_TOP);
+        bp.rightMargin = px(MARGIN);
+        root.addView(liveBadge, bp);
 
         moveHint = text(px(24), 0xA8FFFFFF, regular);
         moveHint.setText(Strings.t("Use the arrows to move it, then press OK"));
@@ -516,9 +561,16 @@ public class MainActivity extends Activity {
     // The preview found out whether an input sends a picture: update its dot and the shelf's line.
     // Only redraws when that changed, and only while that input is still the one in focus.
     // The HDMI preview has a picture (or lost it): the wallpaper fades out to let it through, dimmed.
+    // Also called again when the picture's resolution becomes known, to fill in the LIVE badge.
     private void onPicture(boolean showing) {
         wallpaperView.animate().alpha(showing ? 0f : 1f).setDuration(350).start();
         dimView.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
+        dockShade.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
+        if (showing) {
+            String info = preview.videoInfo();
+            liveText.setText(info == null ? "LIVE" : "LIVE  ·  " + info);
+        }
+        liveBadge.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
     }
 
     private void onSignal(String inputId, boolean picture) {
@@ -699,6 +751,8 @@ public class MainActivity extends Activity {
         ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = px(DOCK_TOP) - px(48);
         root.setMinimumHeight(dockBottom + px(DOCK_X)); // as far from the bottom as from the sides
         dock.setLayoutParams(at(px(DOCK_X), px(DOCK_TOP), getResources().getDisplayMetrics().widthPixels - 2 * px(DOCK_X),
+                dockBottom - px(DOCK_TOP)));
+        dockShade.setLayoutParams(at(px(DOCK_X), px(DOCK_TOP), getResources().getDisplayMetrics().widthPixels - 2 * px(DOCK_X),
                 dockBottom - px(DOCK_TOP)));
 
         for (String pkg : apps) {
