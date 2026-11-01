@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
     //     (--es apps auto  goes back to 2; add --es stamp <unique> so it's applied only once, see saveConfig)
     //  2. apps.txt (built in as Apps.LIST), topped up with other TV apps installed on this TV.
     // Missing apps are skipped. Topping up stops at six apps, but a chosen list can be any length:
-    // apps wrap into rows of six, like Apple TV, and the page scrolls down once they don't all fit.
+    // six show, and the row scrolls sideways for the rest (Right on the last goes back to the first).
     // On the TV, hold OK on an app (or press Menu) to move or remove it, or add another; that saves list 1.
     // A network tile always sits at the top right, level with the clock. Settings shortcuts can join
     // it there, off until picked the same way:
@@ -79,7 +79,8 @@ public class MainActivity extends Activity {
     private static final String SETTINGS = "settings";
     private static final String ADD = "add";
     private static final String LIVE = "live";
-    private static final String[] EDIT_ITEMS = {"Move", "Replace", "Remove from home", "Uninstall"};
+    private static final String[] ADD_ITEMS = {"Add an app", "Arrange apps"};
+    private static final String[] EDIT_ITEMS ={"Move", "Replace", "Remove from home", "Uninstall"};
     private static final String[] EDIT_ITEMS_SYSTEM = {"Move", "Replace", "Remove from home", "App info"};
     private static final int PER_ROW = 6, MAX_INPUTS = 4;
 
@@ -104,7 +105,6 @@ public class MainActivity extends Activity {
     private static final int PILL_H = 64, PILL_GAP = 20, PILL_PAD = 28, PILL_ICON = 28, PILL_ROOM = 96; // ROOM: tile to pills
     private static final int DOCK_TOP = 1080 - DOCK_X - (DOCK_PAD + TILE_H + PILL_ROOM + PILL_H + DOCK_PAD);
     private static final int TILE_LEFT = MARGIN, ROW1_TOP = DOCK_TOP + DOCK_PAD;
-    private static final int ROW_STEP = TILE_H + 76; // a tile and room for the focused app's name under it
     private static final int CLOCK_TOP = 54, CLOCK_SIZE = Style.TITLE, CLOCK_BOTTOM = 99;
     private static final int ICON_TOP = 40, ICON_BUTTON = 72, ICON_SIZE = 40, ICON_GAP = 12; // level with the clock
     // The art sits halfway between the clock and the dock; the name is level with the art's middle.
@@ -161,6 +161,9 @@ public class MainActivity extends Activity {
     private String mostRecent;    // the app used last, if usage stats are allowed
     private View dock;            // the glass panel the tiles sit on
     private View dockShade;       // darkens the dock over a live HDMI picture
+    private android.widget.HorizontalScrollView appScroll; // the app row, scrolling sideways
+    private FrameLayout appStrip; // the app tiles, in appScroll
+    private int stripX, stripY;   // where appScroll sits, so tiles can be placed inside it
     private LinearLayout liveBadge; // "● LIVE · 1080p" at the top right while an HDMI picture shows
     private TextView liveText;
     private TextClock clockView;
@@ -287,6 +290,25 @@ public class MainActivity extends Activity {
         glass.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
         dock.setBackground(glass);
         root.addView(dock, at(0, 0, 0, 0)); // placed by buildTiles
+
+        // The apps: one row that scrolls sideways inside the dock when there are more than fit, so the
+        // pills under it never move. It cuts off at the dock's edges, where the next app peeks in.
+        // Android scrolls it along with the focus.
+        appScroll = new android.widget.HorizontalScrollView(this) {
+            // No scrolling of its own to the focused tile (it stops just short, off the grid):
+            // scrollRowTo lines the tiles up with the dock instead.
+            @Override protected int computeScrollDeltaToGetChildRectOnScreen(android.graphics.Rect r) { return 0; }
+        };
+        // Cut off at its own edges (root doesn't clip, so focused tiles can grow out of their places).
+        appScroll.setOutlineProvider(android.view.ViewOutlineProvider.BOUNDS);
+        appScroll.setClipToOutline(true);
+        appScroll.setHorizontalScrollBarEnabled(false);
+        appScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        appScroll.setSmoothScrollingEnabled(true);
+        appStrip = new FrameLayout(this);
+        appStrip.setClipChildren(false);
+        appScroll.addView(appStrip, new FrameLayout.LayoutParams(-2, -1));
+        root.addView(appScroll, at(0, 0, 0, 0)); // placed by buildTiles
 
         // Only a clock at the top right, like Apple TV. Bluetooth, sound and picture live in Control Center;
         // a network icon shows left of the clock only while the TV is offline.
@@ -775,13 +797,18 @@ public class MainActivity extends Activity {
         tileH = h;
 
         List<String> apps = appList(pm);
-        // Apps fill rows of six under the top shelf, the inputs come as pills under them, all on the
-        // glass dock. More rows don't push into the shelf: the page scrolls instead, as on Apple TV.
-        int launchable = 0;
-        for (String pkg : apps) if (launchIntent(pm, pkg) != null) launchable++;
-        int rows = Math.max(1, (launchable + PER_ROW - 1) / PER_ROW);
+        // The apps in one row under the top shelf (scrolling sideways past six), the inputs as pills
+        // under them, all on the glass dock.
         gridTop = px(ROW1_TOP);
-        int pillTop = gridTop + (rows - 1) * px(ROW_STEP) + h + px(PILL_ROOM);
+        int pillTop = gridTop + h + px(PILL_ROOM);
+        // The row's window: inside the dock's edges, tall enough for a focused tile to grow and for
+        // its name under it.
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        stripX = px(DOCK_X + Style.STROKE);
+        stripY = gridTop - px(30);
+        appScroll.setLayoutParams(at(stripX, stripY, sw - 2 * stripX, h + px(30) + px(PILL_ROOM - 10)));
+        appStrip.setPadding(0, 0, px(TILE_LEFT) - stripX, 0); // the last app ends as far in as the first starts
+        appScroll.scrollTo(0, 0);
         int dockBottom = pillTop + px(PILL_H) + px(DOCK_PAD);
         ((FrameLayout.LayoutParams) moveHint.getLayoutParams()).topMargin = px(DOCK_TOP) - px(48);
         root.setMinimumHeight(dockBottom + px(DOCK_X)); // as far from the bottom as from the sides
@@ -805,7 +832,7 @@ public class MainActivity extends Activity {
             if (banner == null) try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) {}
             int i = rowApps.size();
             rowApps.add(pkg);
-            addTile(root, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
+            addTile(appStrip, pkg, label, banner, null, icon, gridX(i), gridY(i), w, h);
         }
 
         // Under the apps, as small glass pills so they weigh less than the apps: Live TV (or the Play
@@ -913,6 +940,7 @@ public class MainActivity extends Activity {
             if (has) {
                 focusedKey = key;
                 showOnShelf(key, label, subFor(key), art); // asked now: "5 min ago" keeps changing
+                if (parent == appStrip) scrollRowTo(rowApps.indexOf(key));
             }
             if (glass) {
                 bg.setColor(has ? Style.FOCUS : Style.GLASS);
@@ -948,6 +976,12 @@ public class MainActivity extends Activity {
                     || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
             boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
             if (key.equals(movingKey)) return moveKey(key, code, ok, down);
+            // Right on the last app goes round to the first.
+            if (editable && code == KeyEvent.KEYCODE_DPAD_RIGHT && rowApps.size() > 1
+                    && key.equals(rowApps.get(rowApps.size() - 1))) {
+                if (down) tile(rowApps.get(0)).requestFocus();
+                return true;
+            }
             if (editable && code == KeyEvent.KEYCODE_MENU) {
                 if (!down) showEditMenu(key);
                 return true;
@@ -1084,7 +1118,12 @@ public class MainActivity extends Activity {
         preview.stop(); // free the input before its full-screen player wants it
         Intent i;
         if (ADD.equals(key)) {
-            showAddMenu(-1);
+            // Add one, or put the apps in order: "arrange" starts moving the first app (arrows move it,
+            // OK sets it down); any app can also be moved by holding OK on it.
+            dropdown(tile(ADD), ADD_ITEMS, which -> {
+                if (which == 0) showAddMenu(-1);
+                else if (!rowApps.isEmpty()) startMove(rowApps.get(0));
+            });
             return;
         } else if (LIVE.equals(key)) {
             openLiveTv();
@@ -1592,12 +1631,24 @@ public class MainActivity extends Activity {
     }
 
     // Where app number i sits in the grid.
+    // Scrolls the app row just enough to show app number i, in whole steps, so the tiles always sit on
+    // the dock's grid: the first one where it starts, the last one where the sixth would end.
+    private void scrollRowTo(int i) {
+        if (i < 0) return;
+        int visibleRight = appScroll.getWidth() - (px(TILE_LEFT) - stripX);
+        int x = appScroll.getScrollX();
+        if (gridX(i) - x < gridX(0)) x = gridX(i) - gridX(0);
+        if (gridX(i) + tileW - x > visibleRight) x = gridX(i) + tileW - visibleRight;
+        appScroll.smoothScrollTo(Math.max(0, x), 0);
+    }
+
+    // Where app number i sits in the app row (inside appStrip).
     private int gridX(int i) {
-        return px(TILE_LEFT) + (i % PER_ROW) * (tileW + px(GAP));
+        return px(TILE_LEFT) - stripX + i * (tileW + px(GAP));
     }
 
     private int gridY(int i) {
-        return gridTop + (i / PER_ROW) * px(ROW_STEP);
+        return gridTop - stripY;
     }
 
     private View tile(String key) {
@@ -1619,8 +1670,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean moveKey(String key, int code, boolean ok, boolean down) {
-        int step = code == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1
-                : code == KeyEvent.KEYCODE_DPAD_UP ? -PER_ROW : code == KeyEvent.KEYCODE_DPAD_DOWN ? PER_ROW : 0;
+        int step = code == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : code == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : 0;
         if (step != 0) {
             int from = rowApps.indexOf(key), to = from + step;
             if (down && to >= 0 && to < rowApps.size()) {
@@ -1633,10 +1683,7 @@ public class MainActivity extends Activity {
                     lp.topMargin = gridY(i);
                     wrap.setLayoutParams(lp);
                 }
-                // Scroll along with it once it has moved.
-                final View card = tile(key);
-                card.post(() -> card.requestRectangleOnScreen(
-                        new android.graphics.Rect(0, 0, card.getWidth(), card.getHeight())));
+                scrollRowTo(to); // scroll along with it
             }
             return true;
         }
