@@ -18,6 +18,8 @@ final class Style {
     // the bottom right. Over other apps there's no copy to blur, so the tint is stronger (SOLO).
     static final int LIQUID_TINT = 0x8C14161C, LIQUID_SOLO = 0xEE14161C, LIQUID_GLOSS = 0x1AFFFFFF;
     static final int LIQUID_RIM_HI = 0x8CFFFFFF, LIQUID_RIM_LO = 0x12FFFFFF, LIQUID_RIM_END = 0x3DFFFFFF;
+    // How bright glass over the page ends up (0 black, 1 white): the tint's strength follows what's under it.
+    static final double LIQUID_LEVEL = 0.20;
 
     // Text on the wallpaper and panels, and focus: white, with dark text and icons on it.
     static final int INK = 0xFFFFFFFF, INK_2 = 0xB8FFFFFF, INK_3 = 0x80FFFFFF;

@@ -24,6 +24,7 @@ final class Strings {
         "Photos from your phone (Wi-Fi)", "On your phone or computer, in the same Wi-Fi, open:",
         "Photos received: %d", "Choose photos", "Sent", "Back: done", "Show now", "Delete received photos",
         "Photos deleted: %d",
+        "Scan with your phone's camera, or open in the same Wi-Fi:",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -46,6 +47,7 @@ final class Strings {
             "لا توجد صور",
             "صور من هاتفك (Wi-Fi)", "افتح على هاتفك أو حاسوبك في شبكة Wi-Fi نفسها:", "الصور المستلمة: %d",
             "اختر الصور", "تم الإرسال", "رجوع: تم", "عرض الآن", "حذف الصور المستلمة", "الصور المحذوفة: %d",
+            "امسح بكاميرا هاتفك، أو افتح في شبكة Wi-Fi نفسها:",
         });
         LANGS.put("de", new String[] {
             "Einstellungen", "App hinzufügen", "Netzwerk", "Offline", "Ton", "Bild",
@@ -64,6 +66,7 @@ final class Strings {
             "Fotos vom Handy (WLAN)", "Auf dem Handy oder PC im selben WLAN öffnen:", "Empfangene Fotos: %d",
             "Fotos auswählen", "Gesendet", "Zurück: fertig", "Jetzt ansehen", "Empfangene Fotos löschen",
             "Fotos gelöscht: %d",
+            "Mit der Handy-Kamera scannen oder im selben WLAN öffnen:",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",
@@ -84,6 +87,7 @@ final class Strings {
             "Fotos desde el móvil (Wi-Fi)", "En el móvil o el ordenador, en la misma Wi-Fi, abre:",
             "Fotos recibidas: %d", "Elegir fotos", "Enviadas", "Atrás: listo", "Ver ahora", "Borrar fotos recibidas",
             "Fotos borradas: %d",
+            "Escanea con la cámara del móvil o abre en la misma Wi-Fi:",
         });
         LANGS.put("fr", new String[] {
             "Paramètres", "Ajouter une app", "Réseau", "Hors ligne", "Son", "Image",
@@ -106,6 +110,7 @@ final class Strings {
             "Photos depuis le téléphone (Wi-Fi)", "Sur le téléphone ou l'ordinateur, sur le même Wi-Fi, ouvrez :",
             "Photos reçues : %d", "Choisir des photos", "Envoyées", "Retour : terminé", "Voir maintenant",
             "Supprimer les photos reçues", "Photos supprimées : %d",
+            "Scannez avec l'appareil photo du téléphone, ou ouvrez sur le même Wi-Fi :",
         });
         LANGS.put("hi", new String[] {
             "सेटिंग्स", "ऐप जोड़ें", "नेटवर्क", "ऑफ़लाइन", "ध्वनि", "चित्र",
@@ -124,6 +129,7 @@ final class Strings {
             "रीस्टोर हो गया", "कोई बैकअप नहीं मिला", "रंगों के ग्रेडिएंट", "आपकी फ़ोटो (USB)", "कोई फ़ोटो नहीं मिली",
             "फ़ोन से फ़ोटो (Wi-Fi)", "उसी Wi-Fi पर अपने फ़ोन या कंप्यूटर में खोलें:", "मिली फ़ोटो: %d",
             "फ़ोटो चुनें", "भेजी गईं", "वापस: हो गया", "अभी देखें", "मिली फ़ोटो हटाएँ", "हटाई गई फ़ोटो: %d",
+            "फ़ोन के कैमरे से स्कैन करें, या उसी Wi-Fi पर खोलें:",
         });
         String[] id = {
             "Setelan", "Tambah aplikasi", "Jaringan", "Offline", "Suara", "Gambar",
@@ -144,6 +150,7 @@ final class Strings {
             "Foto dari ponsel (Wi-Fi)", "Di ponsel atau komputer, di Wi-Fi yang sama, buka:", "Foto diterima: %d",
             "Pilih foto", "Terkirim", "Kembali: selesai", "Lihat sekarang", "Hapus foto yang diterima",
             "Foto dihapus: %d",
+            "Pindai dengan kamera ponsel, atau buka di Wi-Fi yang sama:",
         };
         LANGS.put("id", id);
         LANGS.put("in", id); // Java's old code for Indonesian, which Android still reports
@@ -167,6 +174,7 @@ final class Strings {
             "Foto dal telefono (Wi-Fi)", "Sul telefono o sul computer, nella stessa Wi-Fi, apri:",
             "Foto ricevute: %d", "Scegli le foto", "Inviate", "Indietro: fine", "Mostra ora",
             "Elimina le foto ricevute", "Foto eliminate: %d",
+            "Inquadra con la fotocamera del telefono o apri nella stessa Wi-Fi:",
         });
         LANGS.put("ja", new String[] {
             "設定", "アプリを追加", "ネットワーク", "オフライン", "サウンド", "画像",
@@ -182,6 +190,7 @@ final class Strings {
             "写真が見つかりません",
             "スマホから写真 (Wi-Fi)", "同じWi-Fiのスマホやパソコンで開いてください:", "受信した写真: %d", "写真を選ぶ", "送信済み", "戻る: 完了", "今すぐ表示",
             "受信した写真を削除", "削除した写真: %d",
+            "スマホのカメラで読み取るか、同じWi-Fiで開いてください:",
         });
         LANGS.put("ko", new String[] {
             "설정", "앱 추가", "네트워크", "오프라인", "소리", "화면",
@@ -195,6 +204,7 @@ final class Strings {
             "백업 및 복원", "지금 백업", "복원", "백업했습니다", "복원했습니다", "백업이 없습니다", "색상 그라데이션", "내 사진 (USB)", "사진이 없습니다",
             "휴대폰에서 사진 보내기 (Wi-Fi)", "같은 Wi-Fi의 휴대폰이나 컴퓨터에서 열기:", "받은 사진: %d", "사진 선택", "보냄", "뒤로: 완료", "지금 보기",
             "받은 사진 삭제", "삭제한 사진: %d",
+            "휴대폰 카메라로 스캔하거나 같은 Wi-Fi에서 여세요:",
         });
         LANGS.put("nl", new String[] {
             "Instellingen", "App toevoegen", "Netwerk", "Offline", "Geluid", "Beeld",
@@ -215,6 +225,7 @@ final class Strings {
             "Foto's van je telefoon (wifi)", "Open op je telefoon of computer, op hetzelfde wifi:",
             "Foto's ontvangen: %d", "Foto's kiezen", "Verzonden", "Terug: klaar", "Nu bekijken",
             "Ontvangen foto's verwijderen", "Foto's verwijderd: %d",
+            "Scan met de camera van je telefoon, of open op hetzelfde wifi:",
         });
         LANGS.put("pl", new String[] {
             "Ustawienia", "Dodaj aplikację", "Sieć", "Offline", "Dźwięk", "Obraz",
@@ -235,6 +246,7 @@ final class Strings {
             "Zdjęcia z telefonu (Wi-Fi)", "Na telefonie lub komputerze w tej samej sieci Wi-Fi otwórz:",
             "Odebrane zdjęcia: %d", "Wybierz zdjęcia", "Wysłano", "Wstecz: gotowe", "Pokaż teraz",
             "Usuń odebrane zdjęcia", "Usunięte zdjęcia: %d",
+            "Zeskanuj aparatem telefonu albo otwórz w tej samej sieci Wi-Fi:",
         });
         LANGS.put("pt", new String[] { // Brazilian Portuguese
             "Configurações", "Adicionar app", "Rede", "Sem conexão", "Som", "Imagem",
@@ -255,6 +267,7 @@ final class Strings {
             "Fotos do celular (Wi-Fi)", "No celular ou computador, no mesmo Wi-Fi, abra:", "Fotos recebidas: %d",
             "Escolher fotos", "Enviadas", "Voltar: pronto", "Ver agora", "Apagar fotos recebidas",
             "Fotos apagadas: %d",
+            "Escaneie com a câmera do celular ou abra no mesmo Wi-Fi:",
         });
         LANGS.put("ru", new String[] {
             "Настройки", "Добавить", "Сеть", "Нет сети", "Звук", "Изображение",
@@ -275,6 +288,7 @@ final class Strings {
             "Фото с телефона (Wi-Fi)", "На телефоне или компьютере в той же сети Wi-Fi откройте:",
             "Получено фото: %d", "Выбрать фото", "Отправлено", "Назад: готово", "Показать сейчас",
             "Удалить полученные фото", "Удалено фото: %d",
+            "Отсканируйте камерой телефона или откройте в той же сети Wi-Fi:",
         });
         LANGS.put("tr", new String[] {
             "Ayarlar", "Uygulama ekle", "Ağ", "Çevrimdışı", "Ses", "Görüntü",
@@ -294,6 +308,7 @@ final class Strings {
             "Telefondan fotoğraf (Wi-Fi)", "Aynı Wi-Fi'deki telefon veya bilgisayarda açın:", "Alınan fotoğraf: %d",
             "Fotoğraf seç", "Gönderildi", "Geri: bitti", "Şimdi göster", "Alınan fotoğrafları sil",
             "Silinen fotoğraf: %d",
+            "Telefon kamerasıyla tarayın veya aynı Wi-Fi'de açın:",
         });
         LANGS.put("uk", new String[] {
             "Налаштування", "Додати додаток", "Мережа", "Офлайн", "Звук", "Зображення",
@@ -313,6 +328,7 @@ final class Strings {
             "Фото з телефона (Wi-Fi)", "На телефоні чи комп'ютері в тій самій мережі Wi-Fi відкрийте:",
             "Отримано фото: %d", "Вибрати фото", "Надіслано", "Назад: готово", "Показати зараз",
             "Видалити отримані фото", "Видалено фото: %d",
+            "Відскануйте камерою телефона або відкрийте в тій самій мережі Wi-Fi:",
         });
         LANGS.put("zh", new String[] { // Simplified Chinese
             "设置", "添加应用", "网络", "未联网", "声音", "图像",
@@ -326,6 +342,7 @@ final class Strings {
             "备份与恢复", "立即备份", "恢复", "已备份", "已恢复", "未找到备份", "彩色渐变", "你的照片 (USB)", "未找到照片",
             "从手机发送照片 (Wi-Fi)", "在同一 Wi-Fi 下的手机或电脑上打开：", "已收到照片：%d", "选择照片", "已发送", "返回：完成", "立即查看", "删除收到的照片",
             "已删除照片：%d",
+            "用手机相机扫码，或在同一 Wi-Fi 下打开：",
         });
         String[] hant = { // Traditional Chinese
             "設定", "新增應用程式", "網路", "離線", "音效", "影像",
@@ -339,6 +356,7 @@ final class Strings {
             "備份與還原", "立即備份", "還原", "已備份", "已還原", "找不到備份", "彩色漸層", "你的相片 (USB)", "找不到相片",
             "從手機傳送相片 (Wi-Fi)", "在同一 Wi-Fi 的手機或電腦上開啟：", "已收到相片：%d", "選擇相片", "已傳送", "返回：完成", "立即查看", "刪除收到的相片",
             "已刪除相片：%d",
+            "用手機相機掃描，或在同一 Wi-Fi 下開啟：",
         };
         LANGS.put("zh-TW", hant);
         LANGS.put("zh-HK", hant);

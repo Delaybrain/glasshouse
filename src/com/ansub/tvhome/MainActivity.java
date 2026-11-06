@@ -778,7 +778,8 @@ public class MainActivity extends Activity {
             return Strings.t("HDMI input") + "  ·  "
                     + Strings.t(picture == null ? "No device on" : picture ? "Picture found" : "No signal");
         }
-        if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
+        if (SETTINGS.equals(key)) // the first four, then "…": all of them would be cut off mid-word
+            return android.text.TextUtils.join("  ·  ", Arrays.copyOf(translated(SETTINGS_ITEMS), 4)) + "  ·  \u2026";
         String pkg = LIVE.equals(key) ? livePackage() : key;
         Long t = pkg == null ? null : lastUsed.get(pkg);
         if (t == null) return "";
@@ -2195,31 +2196,41 @@ public class MainActivity extends Activity {
         try { port = drop.start(); } catch (java.io.IOException e) { toast("Offline"); return; }
 
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
-        int pad = px(DOCK_PAD), cw = px(960), ch = px(440);
+        // Beside the Screensaver panel it opens from, not over it: centred in the room left of the panel.
+        int pad = px(DOCK_PAD), qr = px(320), cw = px(1080), ch = px(420);
         int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
-        int cx = (sw - cw) / 2, cy = (sh - ch) / 2;
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(pad, pad, pad, pad);
+        int cx = (sw - px(Style.PANEL_W + Style.PANEL_MARGIN) - cw) / 2, cy = (sh - ch) / 2;
+        FrameLayout card = new FrameLayout(this);
         card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        String address = "http://" + ip + (port == 80 ? "" : ":" + port);
+        // The QR code on white (cameras want the light quiet zone round it), the same corners as the tiles.
+        ImageView code = new ImageView(this);
+        code.setImageDrawable(qrCode(address));
+        GradientDrawable paper = new GradientDrawable();
+        paper.setCornerRadius(px(Style.RADIUS_TILE));
+        paper.setColor(Color.WHITE);
+        code.setBackground(paper);
+        card.addView(code, at(pad, (ch - qr) / 2, qr, qr));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setGravity(Gravity.CENTER_VERTICAL);
         TextView head = text(px(Style.TITLE), Style.INK, semibold);
         head.setText(Strings.t("Photos from your phone (Wi-Fi)"));
-        head.setGravity(Gravity.CENTER_HORIZONTAL);
         TextView how = text(px(Style.BODY), Style.INK_2, regular);
-        how.setText(Strings.t("On your phone or computer, in the same Wi-Fi, open:"));
+        how.setText(Strings.t("Scan with your phone's camera, or open in the same Wi-Fi:"));
         TextView url = text(px(Style.HEADLINE), Style.INK, semibold);
-        url.setText("http://" + ip + (port == 80 ? "" : ":" + port));
+        url.setText(address);
         got.setText(String.format(Strings.t("Photos received: %d"), 0));
         TextView back = text(px(Style.LABEL), Style.INK_3, regular);
         back.setText(Strings.t("Back: done"));
-        card.addView(head);
+        words.addView(head);
         for (TextView t : new TextView[] {how, url, got, back}) {
-            t.setGravity(Gravity.CENTER_HORIZONTAL);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-            lp.topMargin = px(t == url ? 16 : 28);
-            card.addView(t, lp);
+            lp.topMargin = px(t == url ? 12 : 24);
+            words.addView(t, lp);
         }
+        int wx = pad + qr + px(48);
+        card.addView(words, at(wx, 0, cw - wx - pad, ch));
         FrameLayout frame = new FrameLayout(this);
         frame.addView(card, at(cx, cy, cw, ch));
         d.setContentView(frame);
@@ -2234,6 +2245,21 @@ public class MainActivity extends Activity {
         win.setLayout(-1, -1);
         win.setDimAmount(0.5f);
         d.show();
+    }
+
+    // A QR code for text, black on transparent (the card puts it on white), one pixel per module scaled up
+    // without smoothing so the edges stay hard.
+    private Drawable qrCode(String text) {
+        boolean[][] m = Qr.encode(text);
+        if (m == null) return null;
+        int quiet = 2, n = m.length + 2 * quiet; // the white card's padding adds to the quiet zone
+        Bitmap b = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+        for (int y = 0; y < m.length; y++)
+            for (int x = 0; x < m.length; x++) if (m[y][x]) b.setPixel(x + quiet, y + quiet, Style.FOCUS_INK);
+        BitmapDrawable d = new BitmapDrawable(getResources(), b);
+        d.setFilterBitmap(false);
+        d.setAntiAlias(false);
+        return d;
     }
 
     // The TV's address in the home network (IPv4), or null when it's offline.
@@ -2433,13 +2459,20 @@ public class MainActivity extends Activity {
         int h = items.length * rowH + 2 * pad;
         int y = tileBottom + px(64);
         if (y + h > getResources().getDisplayMetrics().heightPixels - px(24)) y = at[1] - h - px(16);
-        box.setBackground(glass(new android.graphics.Rect(at[0], y, at[0] + w, y + h)));
+        // Above an app tile it clears the dock's edge too, instead of sitting across it.
+        boolean rowTile = anchor.getParent() != null && anchor.getParent().getParent() == appStrip;
+        if (rowTile && y < at[1]) y = Math.min(y, px(DOCK_TOP) - h - px(16));
+        // Centred on the tile or pill it belongs to, but never past the dock's edges.
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        int x = at[0] + Math.round(anchor.getWidth() * anchor.getScaleX()) / 2 - w / 2;
+        x = Math.max(px(DOCK_X), Math.min(sw - px(DOCK_X) - w, x));
+        box.setBackground(glass(new android.graphics.Rect(x, y, x + w, y + h)));
         Window win = d.getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         win.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         win.setGravity(Gravity.TOP | Gravity.START);
         android.view.WindowManager.LayoutParams lp = win.getAttributes();
-        lp.x = at[0];
+        lp.x = x;
         lp.y = y;
         lp.width = w;
         lp.height = h;
@@ -2880,7 +2913,27 @@ public class MainActivity extends Activity {
         android.graphics.Rect from = page == null ? null : new android.graphics.Rect(onScreen.left / BACKDROP,
                 onScreen.top / BACKDROP, onScreen.right / BACKDROP, onScreen.bottom / BACKDROP);
         return new LiquidGlass(px(Style.RADIUS_PANEL), Math.max(1, px(Style.STROKE)),
-                page == null ? Style.LIQUID_SOLO : Style.LIQUID_TINT, page, from);
+                page == null ? Style.LIQUID_SOLO : evenTint(page, from), page, from);
+    }
+
+    // The tint's strength for glass over this part of the page, so every glass ends up as bright
+    // (Style.LIQUID_LEVEL) whatever is under it: more tint over bright tiles, less over the dark dock.
+    private static int evenTint(Bitmap page, android.graphics.Rect from) {
+        double sum = 0;
+        int n = 0;
+        for (int y = Math.max(0, from.top); y < Math.min(page.getHeight(), from.bottom); y += 2)
+            for (int x = Math.max(0, from.left); x < Math.min(page.getWidth(), from.right); x += 2) {
+                int c = page.getPixel(x, y);
+                sum += (0.2126 * ((c >> 16) & 0xFF) + 0.7152 * ((c >> 8) & 0xFF) + 0.0722 * (c & 0xFF)) / 255.0;
+                n++;
+            }
+        int t = Style.LIQUID_TINT;
+        if (n == 0) return t;
+        double under = sum / n;
+        double ink = (0.2126 * ((t >> 16) & 0xFF) + 0.7152 * ((t >> 8) & 0xFF) + 0.0722 * (t & 0xFF)) / 255.0;
+        double a = under <= Style.LIQUID_LEVEL ? 0 : (under - Style.LIQUID_LEVEL) / (under - ink);
+        a = Math.max(0.25, Math.min(0.9, a)); // always some tint, never solid
+        return (int) Math.round(a * 255) << 24 | (t & 0x00FFFFFF);
     }
 
     // The page as it is now, drawn at a quarter of its size and blurred: what glass floating over it
