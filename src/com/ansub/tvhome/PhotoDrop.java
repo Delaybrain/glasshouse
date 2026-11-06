@@ -21,23 +21,26 @@ import java.util.Map;
 
 // Photos for the screensaver, sent from a phone or computer in the same Wi-Fi: while the "Photos from
 // your phone" card is open, a tiny web server on the TV serves one page to pick photos and takes them
-// one by one. They go into Android's media index under Pictures/TV-Fotos, as this app's own: the
-// screensaver finds them without the photo permission. It only runs while the card is up.
+// one by one. They go into Android's media index (Pictures/TV-Fotos for the screensaver, TV-Hintergrund
+// for the wallpaper), as this app's own: the TV shows them without the photo permission. It only runs
+// while the card is up.
 final class PhotoDrop {
-    interface Listener { void received(int count); }
+    interface Listener { void received(int count, Uri photo); }
 
     static final int PORT = 8080;
-    private static final String FOLDER = "Pictures/TV-Fotos";
+    static final String SCREENSAVER = "Pictures/TV-Fotos", WALLPAPER = "Pictures/TV-Hintergrund"; // where they go
     private static final long MAX_BYTES = 40L << 20; // one photo; a phone's largest are well under this
 
     private final Context context;
     private final Listener listener;
+    private final String folder;
     private final Handler main = new Handler(Looper.getMainLooper());
     private ServerSocket server;
     private volatile int count;
 
-    PhotoDrop(Context c, Listener l) {
+    PhotoDrop(Context c, String folder, Listener l) {
         context = c.getApplicationContext();
+        this.folder = folder;
         listener = l;
     }
 
@@ -94,9 +97,10 @@ final class PhotoDrop {
                 }
                 String name = headers.get("x-name");
                 name = name == null ? "photo.jpg" : URLDecoder.decode(name, "UTF-8").replaceAll("[/\\\\:*?\"<>|]", "_");
-                if (save(in, length, name, type)) {
+                final Uri saved = save(in, length, name, type);
+                if (saved != null) {
                     final int n = ++count;
-                    main.post(() -> listener.received(n));
+                    main.post(() -> listener.received(n, saved));
                     reply(out, "200 OK", "text/plain", "ok");
                 } else {
                     reply(out, "500 Internal Server Error", "text/plain", "no");
@@ -108,17 +112,17 @@ final class PhotoDrop {
     }
 
     // Streams the body into a new picture in the media index; half-written ones are taken out again.
-    private boolean save(InputStream in, long length, String name, String type) {
+    private Uri save(InputStream in, long length, String name, String type) {
         ContentResolver cr = context.getContentResolver();
         ContentValues v = new ContentValues();
         v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
         v.put(MediaStore.MediaColumns.MIME_TYPE, type);
         if (android.os.Build.VERSION.SDK_INT >= 29) {
-            v.put(MediaStore.MediaColumns.RELATIVE_PATH, FOLDER);
+            v.put(MediaStore.MediaColumns.RELATIVE_PATH, folder);
             v.put(MediaStore.MediaColumns.IS_PENDING, 1);
         }
         Uri u = cr.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
-        if (u == null) return false;
+        if (u == null) return null;
         try (OutputStream out = cr.openOutputStream(u)) {
             byte[] buf = new byte[64 * 1024];
             long left = length;
@@ -130,23 +134,23 @@ final class PhotoDrop {
             }
         } catch (Exception e) {
             cr.delete(u, null, null);
-            return false;
+            return null;
         }
         if (android.os.Build.VERSION.SDK_INT >= 29) {
             v.clear();
             v.put(MediaStore.MediaColumns.IS_PENDING, 0);
             cr.update(u, v, null, null);
         }
-        return true;
+        return u;
     }
 
-    // Takes out every photo sent this way (only this app's own can be taken out); returns how many.
+    // Takes out every photo sent for the screensaver (only this app's own can be); returns how many.
     static int deleteReceived(Context c) {
         ContentResolver cr = c.getContentResolver();
         Uri all = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
         int n = 0;
         try (Cursor cur = cr.query(all, new String[] {MediaStore.MediaColumns._ID},
-                MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?", new String[] {FOLDER + "%"}, null)) {
+                MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?", new String[] {SCREENSAVER + "%"}, null)) {
             while (cur != null && cur.moveToNext())
                 n += cr.delete(android.content.ContentUris.withAppendedId(all, cur.getLong(0)), null, null);
         } catch (Exception ignored) {}

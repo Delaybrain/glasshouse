@@ -256,7 +256,7 @@ public class MainActivity extends Activity {
                 new int[] {0x40000000, 0x0D000000, 0x8C000000, 0xE6000000});
         dimView.setBackground(new LayerDrawable(new Drawable[] {dimSide, dimDown}));
         dimView.setAlpha(0f);
-        showWallpaper(wallpaper());
+        showWallpaper(wallpaper()); // a photo comes in a moment later, over the black background
 
         ScrollView scroller = new ScrollView(this);
         scroller.setFillViewport(true);
@@ -879,14 +879,60 @@ public class MainActivity extends Activity {
     }
 
     // The saved wallpaper, as an index into WALLPAPERS (Graphite, the most Apple-like, if none is saved).
+    // The wallpaper: one of the gradients by name, or a photo ("photo:" and its content Uri).
+    private static final String PHOTO = "photo:";
+
     private int wallpaper() {
         String saved = getSharedPreferences(PREFS, 0).getString("wallpaper", null);
+        if (saved != null && saved.startsWith(PHOTO)) return WALLPAPER_NAMES.length; // the photo row
         int i = Arrays.asList(WALLPAPER_NAMES).indexOf(saved);
         return i >= 0 ? i : Arrays.asList(WALLPAPER_NAMES).indexOf("Graphite");
     }
 
+    // Shows a gradient, or (past the gradients' rows) the saved photo.
     private void showWallpaper(int i) {
-        wallpaperView.setBackground(baked(background(WALLPAPERS[i])));
+        if (i < WALLPAPER_NAMES.length) {
+            wallpaperView.setBackground(baked(background(WALLPAPERS[i])));
+            return;
+        }
+        String saved = getSharedPreferences(PREFS, 0).getString("wallpaper", "");
+        if (saved.startsWith(PHOTO)) showPhotoWallpaper(Uri.parse(saved.substring(PHOTO.length())));
+    }
+
+    // A photo as the wallpaper: read off the main thread at screen size and drawn once, with the same
+    // shade at the top as the gradients and a little more on the left and at the bottom, where the
+    // shelf's name and the dock sit. A photo that's gone leaves the gradient.
+    private void showPhotoWallpaper(final Uri photo) {
+        final android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        new Thread(() -> {
+            Bitmap pic;
+            try {
+                pic = android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(getContentResolver(), photo),
+                        (dec, info, src) -> {
+                            int iw = info.getSize().getWidth(), ih = info.getSize().getHeight();
+                            float s = Math.max((float) dm.widthPixels / iw, (float) dm.heightPixels / ih);
+                            if (s < 1f) dec.setTargetSize(Math.max(1, Math.round(iw * s)), Math.max(1, Math.round(ih * s)));
+                            dec.setAllocator(android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE); // drawn into below
+                        });
+            } catch (Exception | OutOfMemoryError e) {
+                return;
+            }
+            final Bitmap out = Bitmap.createBitmap(dm.widthPixels, dm.heightPixels, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(out);
+            float s = Math.max((float) dm.widthPixels / pic.getWidth(), (float) dm.heightPixels / pic.getHeight());
+            float w = pic.getWidth() * s, h = pic.getHeight() * s;
+            android.graphics.RectF to = new android.graphics.RectF((dm.widthPixels - w) / 2, (dm.heightPixels - h) / 2,
+                    (dm.widthPixels + w) / 2, (dm.heightPixels + h) / 2);
+            c.drawBitmap(pic, null, to, new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG));
+            pic.recycle();
+            for (GradientDrawable shade : new GradientDrawable[] {
+                    new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0x59000000, 0x00000000, 0x00000000, 0x59000000}),
+                    new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[] {0x66000000, 0x1A000000, 0x00000000})}) {
+                shade.setBounds(0, 0, dm.widthPixels, dm.heightPixels);
+                shade.draw(c);
+            }
+            runOnUiThread(() -> wallpaperView.setBackground(new BitmapDrawable(getResources(), out)));
+        }, "wallpaper").start();
     }
 
     // The wallpaper's gradients, and a light shade at the top for the clock, drawn once into a
@@ -945,9 +991,14 @@ public class MainActivity extends Activity {
 
     // The wallpapers, each with a small dot of its colours. Moving through the list shows each one
     // behind the panel; OK keeps it, Back goes back to the one before.
+    // Under the gradients: a photo from the TV or a USB stick, or one sent from a phone over Wi-Fi.
     private void showWallpapers() {
         final int size = px(40);
-        panel(Strings.t("Wallpaper"), Arrays.asList(WALLPAPER_NAMES), pos -> {
+        List<String> rows = new ArrayList<>(Arrays.asList(WALLPAPER_NAMES));
+        rows.add(Strings.t("Your photo (USB)"));
+        rows.add(Strings.t("Photo from your phone (Wi-Fi)"));
+        panel(Strings.t("Wallpaper"), rows, pos -> {
+            if (pos >= WALLPAPER_NAMES.length) return new LineIcon(LineIcon.PICTURE);
             int[] c = WALLPAPERS[pos];
             GradientDrawable dot = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[] {glow(c[3], c[0]), c[1], glow(c[4], c[0])});
@@ -956,9 +1007,46 @@ public class MainActivity extends Activity {
             dot.setSize(size, size);
             return dot;
         }, size, wallpaper(), this::showWallpaper, which -> {
+            if (which == WALLPAPER_NAMES.length) { choosePhotoWallpaper(); return; }
+            if (which > WALLPAPER_NAMES.length) {
+                showPhotoDrop(PhotoDrop.WALLPAPER, (n, photo) -> setPhotoWallpaper(photo), null);
+                return;
+            }
             getSharedPreferences(PREFS, 0).edit().putString("wallpaper", WALLPAPER_NAMES[which]).apply();
             showWallpaper(which);
         });
+    }
+
+    private void setPhotoWallpaper(Uri photo) {
+        getSharedPreferences(PREFS, 0).edit().putString("wallpaper", PHOTO + photo).apply();
+        showPhotoWallpaper(photo);
+    }
+
+    private static final int ASK_WALLPAPER = 3;
+
+    // The photos on the TV and USB sticks, newest first, each with a small picture; OK makes one the wallpaper.
+    private void choosePhotoWallpaper() {
+        String perm = android.os.Build.VERSION.SDK_INT >= 33 ? PHOTOS : PHOTOS_OLD;
+        if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {perm}, ASK_WALLPAPER);
+            return;
+        }
+        final List<Uri> photos = new ArrayList<>();
+        SaverView.findPhotos(this, photos, 100);
+        if (photos.isEmpty()) { toast("No photos found"); return; }
+        List<String> names = new ArrayList<>();
+        for (Uri u : photos) {
+            String name = u.getLastPathSegment();
+            try (android.database.Cursor c = getContentResolver().query(u,
+                    new String[] {android.provider.MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) name = c.getString(0);
+            } catch (Exception ignored) {}
+            names.add(name);
+        }
+        final int size = px(64);
+        panel(Strings.t("Choose a photo"), names, pos -> new BitmapDrawable(getResources(),
+                getContentResolver().loadThumbnail(photos.get(pos), new android.util.Size(size, size), null)),
+                size, -1, null, which -> setPhotoWallpaper(photos.get(which)));
     }
 
     // The look picked under Tiles.
@@ -1890,6 +1978,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        if (code == ASK_WALLPAPER) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) choosePhotoWallpaper();
+            return;
+        }
         if (code == ASK_PHOTOS) {
             boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
             if (!ok) getSharedPreferences(PREFS, 0).edit().putString("saver", "gradients").apply();
@@ -2168,7 +2260,11 @@ public class MainActivity extends Activity {
             if (which >= SAVER_LOOKS.length) {
                 on[which] = false;
                 int action = which - SAVER_LOOKS.length;
-                if (action == 0) showPhotoDrop(() -> { on[0] = false; on[1] = true; });
+                if (action == 0) showPhotoDrop(PhotoDrop.SCREENSAVER, null, () -> {
+                    getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply();
+                    on[0] = false;
+                    on[1] = true;
+                });
                 else if (action == 1) startActivity(new Intent(this, SaverPreview.class));
                 else android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"),
                         PhotoDrop.deleteReceived(this)), android.widget.Toast.LENGTH_SHORT).show();
@@ -2184,14 +2280,17 @@ public class MainActivity extends Activity {
         });
     }
 
-    // The card for sending photos over Wi-Fi: the address to open on a phone or computer, and how many
-    // came in. The little web server (PhotoDrop) runs only while it's up. Photos that came in switch the
-    // screensaver to them (then).
-    private void showPhotoDrop(final Runnable then) {
+    // The card for sending photos over Wi-Fi: a QR code and the address to open on a phone or computer,
+    // and how many came in. The little web server (PhotoDrop) runs only while it's up. Each photo goes
+    // to folder and to each (may be null); done runs at the end if any came in.
+    private void showPhotoDrop(String folder, final PhotoDrop.Listener each, final Runnable done) {
         String ip = localAddress();
         if (ip == null) { toast("Offline"); return; }
         final TextView got = text(px(Style.BODY), Style.INK_2, regular);
-        final PhotoDrop drop = new PhotoDrop(this, n -> got.setText(String.format(Strings.t("Photos received: %d"), n)));
+        final PhotoDrop drop = new PhotoDrop(this, folder, (n, photo) -> {
+            got.setText(String.format(Strings.t("Photos received: %d"), n));
+            if (each != null) each.received(n, photo);
+        });
         int port;
         try { port = drop.start(); } catch (java.io.IOException e) { toast("Offline"); return; }
 
@@ -2236,9 +2335,7 @@ public class MainActivity extends Activity {
         d.setContentView(frame);
         d.setOnDismissListener(x -> {
             drop.stop();
-            if (drop.count() == 0) return;
-            getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply();
-            if (then != null) then.run();
+            if (drop.count() > 0 && done != null) done.run();
         });
         Window win = d.getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
