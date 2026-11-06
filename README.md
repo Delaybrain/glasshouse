@@ -12,6 +12,9 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 
 </div>
 
+> [!IMPORTANT]
+> **So far tested on exactly one TV:** a PEAQ 65GQU-5024C (built by Changhong, MediaTek chip, Google TV on Android 14, 1.9 GB RAM). The install, undo and cleanup scripts come from tv-detox, which was used on many TVs, but everything Glasshouse added (the home screen's looks, Control Center, the remote buttons, kids lock, photos over Wi-Fi) has only run there. Other TVs may differ, especially their remotes. Please [open an issue](https://github.com/Delaybrain/glasshouse/issues) with your TV's model either way.
+
 ## What you get
 
 - **Your apps on a glass dock.** The big picture and name at the top follow the focus. The row scrolls past six apps and wraps round. Hold OK on an app to move, replace or remove it.
@@ -47,11 +50,53 @@ Measured on a PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), 150 presses along t
 
 How: the wallpaper and glass are drawn into bitmaps once, there are no elevation shadows or live blurs, banners and their washes are cached, and status text has fixed sizes so updates never lay out the page.
 
-## Install
+## First setup with an AI assistant
+
+The easiest way: let [Claude Code](https://claude.com/claude-code) or another coding agent on your computer do it, and just press OK on the remote when it asks.
+
+1. **Turn on developer mode on the TV.** Settings → System → About → press *Android TV OS build* 7 times. Then, in Developer options, turn on **USB debugging** (and **network debugging** if your TV has it).
+2. **Open the agent on a computer in the same Wi-Fi as the TV**, and paste this in:
+
+```text
+Help me set up Glasshouse on my Android TV and make the TV faster.
+My TV is a <brand and model>.
+
+1. Before you change anything, tell me in plain words: turning off
+   system apps has some risk (a few TVs got stuck at the logo or kept
+   restarting), and you can make mistakes. undo.sh and your list of
+   changes turn everything back on. Ask me to confirm.
+2. Connect to my TV over Wi-Fi with adb. Walk me through anything I
+   need to press on the TV (like "Allow debugging").
+3. Get https://github.com/Delaybrain/glasshouse and read its README
+   and docs/debloat.md. Run candidates.sh and show me, in plain words,
+   what's safe to turn off, what the TV needs, and which apps I use.
+   Check free memory.
+4. Ask me before every change. Turn apps off (pm disable-user), never
+   uninstall them. Write every change and how to undo it into a list
+   file, in the format check.sh reads.
+5. Never turn off: Google Play services, Google Play, Settings,
+   System UI, setup apps, the keyboard, Bluetooth, the HDMI inputs and
+   the TV's tuner/input framework, or anything else the TV needs to
+   start. On Google TV leave Google TV's own home screen on unless I
+   say otherwise (see "Replacing Google TV's home screen" in the README).
+   If you're not sure, leave it on.
+6. Install Glasshouse with install.sh and these apps: <your apps>.
+   Then press Home and check it comes up. Test the remote's Home,
+   settings and apps buttons with me (README: "Remote buttons").
+7. Turn off animations. Ask me if the TV is OLED; if it is, keep the
+   screensaver on.
+8. Wait 30 seconds, restart the TV once, and check it starts normally
+   and Glasshouse comes up. Show me free memory before and after.
+9. Remind me to turn debugging off on the TV when we're done.
+```
+
+3. **Turn debugging off** when it's done. While it's on, other devices on your network can ask to control the TV. Turn it back on only for `undo.sh` or updates.
+
+## Install by hand
 
 You need a computer with `adb` ([platform tools](https://developer.android.com/tools/releases/platform-tools)) on the same network as the TV.
 
-1. **Turn on developer mode on the TV.** Settings → System → About → press *Android TV OS build* 7 times. Then turn on **USB debugging** (and **network debugging** if your TV has it) in Developer options.
+1. **Turn on developer mode** on the TV, as above.
 2. **Install:**
    ```sh
    sh install.sh <TV_IP>
@@ -81,6 +126,39 @@ sh undo.sh <TV_IP>
 ```
 turns back on whatever was turned off, removes Glasshouse and brings your TV's own home screen back. `restore-stock.sh` and `check.sh` work from a list of changes, for those who also cleaned up system apps.
 
+## Remote buttons
+
+On Google TV the Home, settings and apps buttons go to Google TV's own screens, even with another home screen set. Glasshouse catches them first with an accessibility service called **HomeGuard** (in the TV's settings it's *Glasshouse: remote buttons*).
+
+- `install.sh` turns it on. By hand: `sh homeguard.sh <TV_IP> on` (and `off`), or TV Settings → Accessibility → *Glasshouse: remote buttons*.
+- Android turns accessibility services off when their app is updated or force-stopped. Glasshouse turns HomeGuard back on by itself the next time it comes up (that's what `WRITE_SECURE_SETTINGS` is for). `homeguard.sh off` tells it not to.
+
+What the buttons do, as on the tested PEAQ remote:
+
+| Button | Key it sends | Glasshouse |
+|---|---|---|
+| Home | `HOME` | the home screen; **hold it** for the apps you used last |
+| Gear (settings) | `NOTIFICATION` (others send `SETTINGS`) | Control Center |
+| Apps (grid of dots) | `ALL_APPS` | the list of all apps |
+| Person | `PROFILE_SWITCH` | the TV's account page |
+| TV | `GUIDE` | Live TV; inside Live TV it's passed on, for its programme guide |
+| Input (TV with an arrow) | `TV_INPUT` | left alone: the TV's own input picker |
+| Everything else | | left alone |
+
+**A button that does nothing on your remote?** Find out what it sends: run `adb shell getevent -l`, press the button, and look for the `KEY_...` line (Android's name for it can differ a little). The mapping lives in `onKeyEvent` in `src/com/delaybrain/glasshouse/HomeGuard.java`. Open an issue with your remote's model and the key, and it can be added.
+
+## Replacing Google TV's home screen
+
+> [!CAUTION]
+> **Not recommended.** On some Google TVs and Chromecasts, turning off Google TV's home screen (`com.google.android.apps.tv.launcherx`) left them restarting over and over, and only a factory reset helped. That's why `install.sh` leaves it on: HomeGuard brings Glasshouse up instead, and you lose nothing.
+
+**We did it anyway on the PEAQ**, to free its memory and so Home goes straight to Glasshouse. What was done, and how to undo it:
+
+1. Made sure the TV stays reachable over the network on port 5555 (`adb tcpip 5555`; on the PEAQ that survives restarts), so it can be fixed even if the home screen breaks. A USB cable is the better fallback, if your TV has a debugging USB port.
+2. `GOOGLE_TV=1 YES_SETUP=1 sh install.sh <TV_IP>`. It turns off (`pm disable-user`, not uninstall) Google TV's home screen and its setup app (`com.google.android.tungsten.setupwraith`, which otherwise takes over Home), and saves both on the TV's undo list.
+3. Restarted the TV and checked it comes up on Glasshouse. It has, through many restarts, since late October 2026.
+4. To undo: `sh undo.sh <TV_IP>` turns both back on. By hand: `adb shell pm enable com.google.android.apps.tv.launcherx` and the same for the setup app.
+
 ## Cleaning up the TV
 
 Glasshouse started as part of making a slow TV fast again. [docs/debloat.md](docs/debloat.md) explains how to turn off what you don't need, safely and reversibly, with `candidates.sh` listing every app with a verdict.
@@ -90,7 +168,7 @@ Glasshouse started as part of making a slow TV fast again. [docs/debloat.md](doc
 
 ## Good to know
 
-- **Tested on** Android 14 (Google TV, MediaTek). Older TVs may work; the photo features need Android 10 or newer.
+- **Tested on** one TV, a PEAQ 65GQU-5024C with Android 14 (see the top). Older Android versions may work; the photo features need Android 10 or newer.
 - **What apps can't do:** "Continue watching" rows from Netflix and others, CPU use in percent, and temperatures are closed to apps on Android TV. Glasshouse shows what it can (CPU speed, RAM).
 - **Privacy:** nothing leaves your home network. The photo web server runs only while its card is open and takes only pictures or a backup.
 
