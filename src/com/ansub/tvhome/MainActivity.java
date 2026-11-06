@@ -991,9 +991,13 @@ public class MainActivity extends Activity {
 
     // The wallpapers, each with a small dot of its colours. Moving through the list shows each one
     // behind the panel; OK keeps it, Back goes back to the one before.
+    private boolean wallpaperChanged; // a photo was set while the Wallpaper panel was up
+
     // Under the gradients: a photo from the TV or a USB stick, or one sent from a phone over Wi-Fi.
     private void showWallpapers() {
         final int size = px(40);
+        final int initial = wallpaper();
+        wallpaperChanged = false;
         List<String> rows = new ArrayList<>(Arrays.asList(WALLPAPER_NAMES));
         rows.add(Strings.t("Your photo (USB)"));
         rows.add(Strings.t("Photo from your phone (Wi-Fi)"));
@@ -1006,8 +1010,8 @@ public class MainActivity extends Activity {
             dot.setStroke(Math.max(1, px(2)), 0x26FFFFFF);
             dot.setSize(size, size);
             return dot;
-        }, size, wallpaper(), this::showWallpaper, which -> {
-            if (which >= WALLPAPER_NAMES.length) stepBack = this::showWallpapers;
+        }, size, initial, pos -> showWallpaper(pos == initial && wallpaperChanged ? wallpaper() : pos), which -> {
+            if (which >= WALLPAPER_NAMES.length) panelStays = true;
             if (which == WALLPAPER_NAMES.length) { choosePhotoWallpaper(); return; }
             if (which > WALLPAPER_NAMES.length) {
                 showPhotoDrop(PhotoDrop.WALLPAPER, (n, photo) -> setPhotoWallpaper(photo), null);
@@ -1019,6 +1023,7 @@ public class MainActivity extends Activity {
     }
 
     private void setPhotoWallpaper(Uri photo) {
+        wallpaperChanged = true; // so Back on the panel keeps it, rather than going back to the one before
         getSharedPreferences(PREFS, 0).edit().putString("wallpaper", PHOTO + photo).apply();
         showPhotoWallpaper(photo);
     }
@@ -2134,7 +2139,7 @@ public class MainActivity extends Activity {
                 toast("Turn off kids lock");
                 return;
             }
-            stepBack = this::kidLockMenu;
+            panelStays = true;
             if (which == 0) chooseLockedApps();
             else newPin(null);
         });
@@ -2173,16 +2178,17 @@ public class MainActivity extends Activity {
 
     // ---- Back up & restore ----
 
-    // What a backup holds: the choices made on the TV (apps and their order, looks, status bar,
-    // screensaver, kids lock). Not the timers or what was last open.
-    private static final String[] BACKUP_KEYS = {"apps", "quick", "wallpaper", "tiles", "tilesBrand", "status",
-            "saver", "pin", "locked"};
     private static final String BACKUP_FILE = "tvhome-backup.json";
 
     private void showBackup() {
-        panel(Strings.t("Back up & restore"), Arrays.asList(Strings.t("Back up now"), Strings.t("Restore")), which -> {
+        panel(Strings.t("Back up & restore"), Arrays.asList(Strings.t("Back up now"), Strings.t("Restore"),
+                Strings.t("Over Wi-Fi (phone or computer)")), which -> {
             if (which == 0) toast(backUp() ? "Backed up" : "No backup found");
-            else restoreBackup();
+            else if (which == 1) restoreBackup();
+            else {
+                panelStays = true;
+                showBackupDrop();
+            }
         });
     }
 
@@ -2190,10 +2196,7 @@ public class MainActivity extends Activity {
     // a copy to Download, which stays when the app is removed.
     private boolean backUp() {
         try {
-            org.json.JSONObject o = new org.json.JSONObject();
-            java.util.Map<String, ?> all = getSharedPreferences(PREFS, 0).getAll();
-            for (String k : BACKUP_KEYS) if (all.containsKey(k)) o.put(k, all.get(k));
-            byte[] data = o.toString(2).getBytes("UTF-8");
+            byte[] data = Backup.json(this).getBytes("UTF-8");
             java.io.File dir = getExternalFilesDir(null);
             if (dir == null) return false;
             try (java.io.FileOutputStream out = new java.io.FileOutputStream(new java.io.File(dir, BACKUP_FILE))) {
@@ -2237,17 +2240,7 @@ public class MainActivity extends Activity {
                     }
                 }
             }
-            if (json == null) { toast("No backup found"); return; }
-            org.json.JSONObject o = new org.json.JSONObject(json);
-            SharedPreferences.Editor e = getSharedPreferences(PREFS, 0).edit();
-            for (String k : BACKUP_KEYS) {
-                e.remove(k);
-                if (!o.has(k)) continue;
-                Object v = o.get(k);
-                if (v instanceof Boolean) e.putBoolean(k, (Boolean) v);
-                else e.putString(k, String.valueOf(v));
-            }
-            e.commit();
+            if (json == null || !Backup.apply(this, json)) { toast("No backup found"); return; }
             toast("Restored");
             recreate(); // everything drawn again from the restored choices
         } catch (Exception ex) {
@@ -2272,17 +2265,16 @@ public class MainActivity extends Activity {
         rows.add(Strings.t("Delete received photos"));
         final boolean[] on = new boolean[rows.size()];
         on[SaverView.photos(this) ? 1 : 0] = true;
-        final Dialog[] self = new Dialog[1];
-        self[0] = panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
+        panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
             if (which >= SAVER_LOOKS.length) {
                 on[which] = false;
                 int action = which - SAVER_LOOKS.length;
-                if (action == 0) {
-                    self[0].dismiss();
-                    stepBack = this::showScreensaver;
-                    showPhotoDrop(PhotoDrop.SCREENSAVER, null,
-                            () -> getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply());
-                }
+                if (action == 0) showPhotoDrop(PhotoDrop.SCREENSAVER, null, () -> {
+                    getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply();
+                    on[0] = false; // the panel is still up: tick the photos
+                    on[1] = true;
+                    if (redrawChecks != null) redrawChecks.run();
+                });
                 else if (action == 1) startActivity(new Intent(this, SaverPreview.class));
                 else android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"),
                         PhotoDrop.deleteReceived(this)), android.widget.Toast.LENGTH_SHORT).show();
@@ -2302,19 +2294,42 @@ public class MainActivity extends Activity {
     // and how many came in. The little web server (PhotoDrop) runs only while it's up. Each photo goes
     // to folder and to each (may be null); done runs at the end if any came in.
     private void showPhotoDrop(String folder, final PhotoDrop.Listener each, final Runnable done) {
-        final Runnable back = takeBack();
-        String ip = localAddress();
-        if (ip == null) { toast("Offline"); return; }
+        String title = Strings.t(folder.equals(PhotoDrop.WALLPAPER) ? "Photo from your phone (Wi-Fi)" : "Photos from your phone (Wi-Fi)");
         final TextView got = text(px(Style.BODY), Style.INK_2, regular);
-        final PhotoDrop drop = new PhotoDrop(this, folder, (n, photo) -> {
+        got.setText(String.format(Strings.t("Photos received: %d"), 0));
+        final PhotoDrop drop = new PhotoDrop(this, folder, title, (n, photo) -> {
             got.setText(String.format(Strings.t("Photos received: %d"), n));
             if (each != null) each.received(n, photo);
         });
-        int port;
-        try { port = drop.start(); } catch (java.io.IOException e) { toast("Offline"); return; }
+        dropCard(drop, title, got, () -> { if (drop.count() > 0 && done != null) done.run(); });
+    }
 
-        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
-        // Beside the Screensaver panel it opens from, not over it: centred in the room left of the panel.
+    // The backup over Wi-Fi: the phone or computer downloads it, or sends one back. One sent back is put
+    // in place at once, and the home screen starts over with it when the card closes.
+    private void showBackupDrop() {
+        final TextView state = text(px(Style.BODY), Style.INK_2, regular);
+        final DropCard[] card = new DropCard[1];
+        final boolean[] restored = {false};
+        PhotoDrop drop = new PhotoDrop(this, Strings.t("Back up & restore"), () -> {
+            restored[0] = true;
+            state.setText(Strings.t("Restored"));
+            if (card[0] != null) card[0].postDismiss();
+        });
+        card[0] = dropCard(drop, Strings.t("Back up & restore"), state, () -> { if (restored[0]) recreate(); });
+    }
+
+    // A card for a phone or computer in the same Wi-Fi: a QR code and the address to type, the title, a
+    // line that says what came in (status), "Back: done". The web server (drop) runs while it's up;
+    // closed runs when it closes. Null when the TV is offline.
+    private DropCard dropCard(final PhotoDrop drop, String title, TextView status, final Runnable closed) {
+        final Runnable back = takeBack();
+        String ip = localAddress();
+        if (ip == null) { toast("Offline"); return null; }
+        int port;
+        try { port = drop.start(); } catch (java.io.IOException e) { toast("Offline"); return null; }
+
+        final DropCard d = new DropCard(this);
+        // Beside the panel it opens from, not over it: centred in the room left of the panel.
         int pad = px(DOCK_PAD), qr = px(320), cw = px(1080), ch = px(420);
         int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
         int cx = (sw - px(Style.PANEL_W + Style.PANEL_MARGIN) - cw) / 2, cy = (sh - ch) / 2;
@@ -2333,16 +2348,15 @@ public class MainActivity extends Activity {
         words.setOrientation(LinearLayout.VERTICAL);
         words.setGravity(Gravity.CENTER_VERTICAL);
         TextView head = text(px(Style.TITLE), Style.INK, semibold);
-        head.setText(Strings.t("Photos from your phone (Wi-Fi)"));
+        head.setText(title);
         TextView how = text(px(Style.BODY), Style.INK_2, regular);
         how.setText(Strings.t("Scan with your phone's camera, or open in the same Wi-Fi:"));
         TextView url = text(px(Style.HEADLINE), Style.INK, semibold);
         url.setText(address);
-        got.setText(String.format(Strings.t("Photos received: %d"), 0));
         TextView hint = text(px(Style.LABEL), Style.INK_3, regular);
         hint.setText(Strings.t("Back: done"));
         words.addView(head);
-        for (TextView t : new TextView[] {how, url, got, hint}) {
+        for (TextView t : new TextView[] {how, url, status, hint}) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
             lp.topMargin = px(t == url ? 12 : 24);
             words.addView(t, lp);
@@ -2354,14 +2368,22 @@ public class MainActivity extends Activity {
         d.setContentView(frame);
         d.setOnDismissListener(x -> {
             drop.stop();
-            if (drop.count() > 0 && done != null) done.run();
+            closed.run();
         });
-        d.setOnCancelListener(x -> { if (back != null) root.post(back); }); // after the dismiss: done has run
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); }); // after the dismiss: closed has run
         Window win = d.getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         win.setLayout(-1, -1);
         win.setDimAmount(0.5f);
         d.show();
+        return d;
+    }
+
+    // The card's dialog, which can close itself from the web server's callback a moment later (so the
+    // page gets its answer first).
+    private static final class DropCard extends Dialog {
+        DropCard(Context c) { super(c, android.R.style.Theme_Material_Dialog_NoActionBar); }
+        void postDismiss() { getWindow().getDecorView().postDelayed(this::dismiss, 600); }
     }
 
     // A QR code for text, black on transparent (the card puts it on white), one pixel per module scaled up
@@ -2422,6 +2444,10 @@ public class MainActivity extends Activity {
     // dialog takes it, and Back there goes back to that menu instead of closing everything. Every menu,
     // panel and card works the same way. Openers that may not open a dialog take it at their start.
     private Runnable stepBack;
+    // A panel's pick that opens a next step over it sets this: the panel stays under that step, and
+    // Back there closes just the step, the panel is right there again.
+    private boolean panelStays;
+    private Runnable redrawChecks; // the last panel with switches: draws its ticks again
 
     private Runnable takeBack() {
         Runnable back = stepBack;
@@ -2477,7 +2503,7 @@ public class MainActivity extends Activity {
                 new int[][] {{android.R.attr.state_selected}, {}}, new int[] {Style.FOCUS_INK, Style.INK});
         // Icons load as rows appear, drawn small to save RAM.
         final Drawable[] icons = new Drawable[labels.size()];
-        list.setAdapter(new BaseAdapter() {
+        final BaseAdapter rows = new BaseAdapter() {
             @Override public int getCount() { return labels.size(); }
             @Override public Object getItem(int pos) { return labels.get(pos); }
             @Override public long getItemId(int pos) { return pos; }
@@ -2494,6 +2520,7 @@ public class MainActivity extends Activity {
                     try { icons[pos] = icon.at(pos); }
                     catch (Exception e) { icons[pos] = new ColorDrawable(Color.TRANSPARENT); }
                     icons[pos].setBounds(0, 0, size, size);
+                    if (icons[pos] instanceof LineIcon) icons[pos].setTintList(ink); // dark on the white selected row
                 }
                 Drawable tick = null;
                 if (checks != null) {
@@ -2505,7 +2532,9 @@ public class MainActivity extends Activity {
                 t.setCompoundDrawablePadding(px(24));
                 return t;
             }
-        });
+        };
+        list.setAdapter(rows);
+        if (checks != null) redrawChecks = rows::notifyDataSetChanged;
         list.setOnItemClickListener((parent, v, pos, id) -> {
             if (checks != null) {
                 checks[pos] = !checks[pos];
@@ -2513,8 +2542,9 @@ public class MainActivity extends Activity {
                 ((BaseAdapter) list.getAdapter()).notifyDataSetChanged();
                 return;
             }
-            d.dismiss();
+            panelStays = false;
             pick.at(pos);
+            if (!panelStays) d.dismiss();
         });
         if (preview != null) {
             list.setSelection(selected);

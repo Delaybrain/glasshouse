@@ -111,6 +111,8 @@ public class HomeGuard extends AccessibilityService {
         boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
         boolean profile = code == KeyEvent.KEYCODE_PROFILE_SWITCH;
         if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS && !settings && !profile) return false;
+        // The screensaver ends on any button, but these never reach it: end it here, then do as usual.
+        if (e.getAction() == KeyEvent.ACTION_DOWN && Screensaver.active != null) Screensaver.active.finish();
         // Home held down opens the recently used apps instead; its release then does nothing more.
         if (code == KeyEvent.KEYCODE_HOME && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
             homeHeld = false;
@@ -141,6 +143,7 @@ public class HomeGuard extends AccessibilityService {
     // The guide button (a TV on the Peaq remote): opens Live TV. In Live TV it's passed on, so Live TV
     // can show its own guide; MediaTek doesn't let other apps open that guide themselves.
     private boolean guideButton(KeyEvent e) {
+        if (e.getAction() == KeyEvent.ACTION_DOWN && Screensaver.active != null) Screensaver.active.finish();
         Intent live = MainActivity.liveTvIntent(this);
         if (live == null || (live.getComponent() != null && front.equals(live.getComponent().getPackageName())))
             return false;
