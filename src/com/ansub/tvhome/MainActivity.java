@@ -1007,6 +1007,7 @@ public class MainActivity extends Activity {
             dot.setSize(size, size);
             return dot;
         }, size, wallpaper(), this::showWallpaper, which -> {
+            if (which >= WALLPAPER_NAMES.length) stepBack = this::showWallpapers;
             if (which == WALLPAPER_NAMES.length) { choosePhotoWallpaper(); return; }
             if (which > WALLPAPER_NAMES.length) {
                 showPhotoDrop(PhotoDrop.WALLPAPER, (n, photo) -> setPhotoWallpaper(photo), null);
@@ -1026,6 +1027,7 @@ public class MainActivity extends Activity {
 
     // The photos on the TV and USB sticks, newest first, each with a small picture; OK makes one the wallpaper.
     private void choosePhotoWallpaper() {
+        final Runnable back = takeBack(); // given to the list below, if it opens
         String perm = android.os.Build.VERSION.SDK_INT >= 33 ? PHOTOS : PHOTOS_OLD;
         if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {perm}, ASK_WALLPAPER);
@@ -1044,6 +1046,7 @@ public class MainActivity extends Activity {
             names.add(name);
         }
         final int size = px(64);
+        stepBack = back;
         panel(Strings.t("Choose a photo"), names, pos -> new BitmapDrawable(getResources(),
                 getContentResolver().loadThumbnail(photos.get(pos), new android.util.Size(size, size), null)),
                 size, -1, null, which -> setPhotoWallpaper(photos.get(which)));
@@ -1663,8 +1666,10 @@ public class MainActivity extends Activity {
             // Add one, or put the apps in order: "arrange" starts moving the first app (arrows move it,
             // OK sets it down); any app can also be moved by holding OK on it.
             dropdown(tile(ADD), ADD_ITEMS, which -> {
-                if (which == 0) showAddMenu(-1);
-                else startArrange();
+                if (which == 0) {
+                    stepBack = () -> open(ADD);
+                    showAddMenu(-1);
+                } else startArrange();
             });
             return;
         } else if (LIVE.equals(key)) {
@@ -1673,6 +1678,7 @@ public class MainActivity extends Activity {
             return;
         } else if (SETTINGS.equals(key)) {
             dropdown(tile(SETTINGS), SETTINGS_ITEMS, which -> {
+                if (which >= 2) stepBack = () -> open(SETTINGS); // the home screen's own settings: Back comes here
                 if (which == 0) openTvSettings();
                 else if (which == 1) openBrightness();
                 else if (which == 2) showWallpapers();
@@ -2001,6 +2007,8 @@ public class MainActivity extends Activity {
     // keys work too. The fourth digit hands the PIN to check.
     private void askPin(String title, final PinCheck check) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        final Runnable back = takeBack();
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); });
         int keyW = px(132), keyH = px(84), gap = px(16), pad = px(DOCK_PAD), headH = px(64), dotsH = px(56);
         int cw = 3 * keyW + 2 * gap + 2 * pad, ch = pad + headH + dotsH + px(24) + 4 * keyH + 3 * gap + pad;
         int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
@@ -2111,16 +2119,24 @@ public class MainActivity extends Activity {
         }
         askPin(Strings.t("Enter PIN"), pin -> {
             if (!KidLock.check(this, pin)) return false;
-            root.post(() -> panel(Strings.t("Kids lock"), Arrays.asList(Strings.t("Choose apps"), Strings.t("Change PIN"),
-                    Strings.t("Turn off kids lock")), which -> {
-                if (which == 0) chooseLockedApps();
-                else if (which == 1) newPin(null);
-                else {
-                    KidLock.clear(this);
-                    toast("Turn off kids lock");
-                }
-            }));
+            root.post(this::kidLockMenu);
             return true;
+        });
+    }
+
+    // After the PIN: what to lock, a new PIN, or the lock off. Back goes to Settings.
+    private void kidLockMenu() {
+        stepBack = () -> open(SETTINGS);
+        panel(Strings.t("Kids lock"), Arrays.asList(Strings.t("Choose apps"), Strings.t("Change PIN"),
+                Strings.t("Turn off kids lock")), which -> {
+            if (which == 2) {
+                KidLock.clear(this);
+                toast("Turn off kids lock");
+                return;
+            }
+            stepBack = this::kidLockMenu;
+            if (which == 0) chooseLockedApps();
+            else newPin(null);
         });
     }
 
@@ -2256,15 +2272,17 @@ public class MainActivity extends Activity {
         rows.add(Strings.t("Delete received photos"));
         final boolean[] on = new boolean[rows.size()];
         on[SaverView.photos(this) ? 1 : 0] = true;
-        panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
+        final Dialog[] self = new Dialog[1];
+        self[0] = panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
             if (which >= SAVER_LOOKS.length) {
                 on[which] = false;
                 int action = which - SAVER_LOOKS.length;
-                if (action == 0) showPhotoDrop(PhotoDrop.SCREENSAVER, null, () -> {
-                    getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply();
-                    on[0] = false;
-                    on[1] = true;
-                });
+                if (action == 0) {
+                    self[0].dismiss();
+                    stepBack = this::showScreensaver;
+                    showPhotoDrop(PhotoDrop.SCREENSAVER, null,
+                            () -> getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply());
+                }
                 else if (action == 1) startActivity(new Intent(this, SaverPreview.class));
                 else android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"),
                         PhotoDrop.deleteReceived(this)), android.widget.Toast.LENGTH_SHORT).show();
@@ -2284,6 +2302,7 @@ public class MainActivity extends Activity {
     // and how many came in. The little web server (PhotoDrop) runs only while it's up. Each photo goes
     // to folder and to each (may be null); done runs at the end if any came in.
     private void showPhotoDrop(String folder, final PhotoDrop.Listener each, final Runnable done) {
+        final Runnable back = takeBack();
         String ip = localAddress();
         if (ip == null) { toast("Offline"); return; }
         final TextView got = text(px(Style.BODY), Style.INK_2, regular);
@@ -2320,10 +2339,10 @@ public class MainActivity extends Activity {
         TextView url = text(px(Style.HEADLINE), Style.INK, semibold);
         url.setText(address);
         got.setText(String.format(Strings.t("Photos received: %d"), 0));
-        TextView back = text(px(Style.LABEL), Style.INK_3, regular);
-        back.setText(Strings.t("Back: done"));
+        TextView hint = text(px(Style.LABEL), Style.INK_3, regular);
+        hint.setText(Strings.t("Back: done"));
         words.addView(head);
-        for (TextView t : new TextView[] {how, url, got, back}) {
+        for (TextView t : new TextView[] {how, url, got, hint}) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
             lp.topMargin = px(t == url ? 12 : 24);
             words.addView(t, lp);
@@ -2337,6 +2356,7 @@ public class MainActivity extends Activity {
             drop.stop();
             if (drop.count() > 0 && done != null) done.run();
         });
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); }); // after the dismiss: done has run
         Window win = d.getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         win.setLayout(-1, -1);
@@ -2398,24 +2418,36 @@ public class MainActivity extends Activity {
     interface Pick { void at(int which); }
     interface Icon { Drawable at(int which) throws Exception; }
 
-    private void panel(String title, List<String> labels, Pick pick) {
-        panel(title, labels, null, 0, -1, null, pick);
+    // One step back: a menu that opens a next step closes and leaves here how to reopen it; the next
+    // dialog takes it, and Back there goes back to that menu instead of closing everything. Every menu,
+    // panel and card works the same way. Openers that may not open a dialog take it at their start.
+    private Runnable stepBack;
+
+    private Runnable takeBack() {
+        Runnable back = stepBack;
+        stepBack = null;
+        return back;
+    }
+
+    private Dialog panel(String title, List<String> labels, Pick pick) {
+        return panel(title, labels, null, 0, -1, null, pick);
     }
 
     // A side panel in the same look as Control Center: it floats at the right, a title, then one row
     // per choice; the selected row is white with dark text, like every focus here. Back closes it.
     // icon (or null) puts an icon of that size by each name. With preview, the list starts on selected
     // and moving through it calls preview; Back calls it with selected again, to put things back.
-    private void panel(String title, final List<String> labels, final Icon icon, final int size,
-                       final int selected, final Pick preview, final Pick pick) {
-        panel(title, labels, icon, size, selected, preview, null, pick);
+    private Dialog panel(String title, final List<String> labels, final Icon icon, final int size,
+                         final int selected, final Pick preview, final Pick pick) {
+        return panel(title, labels, icon, size, selected, preview, null, pick);
     }
 
     // With checks, each row is a switch: a tick at the end while on. OK flips it, calls pick and keeps
     // the panel open; Back closes it.
-    private void panel(String title, final List<String> labels, final Icon icon, final int size,
-                       final int selected, final Pick preview, final boolean[] checks, final Pick pick) {
+    private Dialog panel(String title, final List<String> labels, final Icon icon, final int size,
+                         final int selected, final Pick preview, final boolean[] checks, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        final Runnable back = takeBack();
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
@@ -2492,8 +2524,11 @@ public class MainActivity extends Activity {
                 }
                 @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
             });
-            d.setOnCancelListener(x -> preview.at(selected));
         }
+        d.setOnCancelListener(x -> {
+            if (preview != null) preview.at(selected);
+            if (back != null) root.post(back);
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 0, 1f);
         lp.topMargin = px(24);
         box.addView(list, lp);
@@ -2511,12 +2546,15 @@ public class MainActivity extends Activity {
         // A preview, or switches that change the page at once, need the home screen undimmed.
         w.setDimAmount(preview != null || checks != null ? 0f : 0.6f);
         d.show();
+        return d;
     }
 
     // A small menu that drops down under a tile, in the panels' look: a dark panel, the focused row
     // white with dark text. Opens above the tile when there's no room below. Back closes it.
     private void dropdown(View anchor, String[] items, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        final Runnable back = takeBack();
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); });
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         // The panel's corner minus its padding is the rows' corner: 40 - 16 = 24, so the curves nest.
@@ -2588,7 +2626,10 @@ public class MainActivity extends Activity {
         final boolean user = userInstalled(key);
         dropdown(tile(key), user ? EDIT_ITEMS : EDIT_ITEMS_SYSTEM, which -> {
             if (which == 0) startMove(key);
-            else if (which == 1) showAddMenu(index);
+            else if (which == 1) {
+                stepBack = () -> showEditMenu(key);
+                showAddMenu(index);
+            }
             else if (which == 3) {
                 Uri pkg = Uri.parse("package:" + key);
                 try { startActivity(user ? new Intent(Intent.ACTION_DELETE, pkg)

@@ -135,6 +135,8 @@ public class ControlCenter extends Activity {
         try {
             Settings.Secure.putInt(getContentResolver(), "screensaver_enabled", next == 0 ? 0 : 1);
             if (next > 0) Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, next * 60000);
+            TimeoutGuard.remember(this, "screensaver_enabled", next == 0 ? 0 : 1); // HomeGuard keeps them so
+            if (next > 0) TimeoutGuard.remember(this, Settings.System.SCREEN_OFF_TIMEOUT, next * 60000);
         } catch (SecurityException e) {
             return;
         }
@@ -161,6 +163,7 @@ public class ControlCenter extends Activity {
         for (int m : SLEEP_MINUTES) if (m > now) { next = m; break; }
         try {
             Settings.Secure.putInt(getContentResolver(), SLEEP, next == 0 ? -1 : next * 60000);
+            TimeoutGuard.remember(this, SLEEP, next == 0 ? -1 : next * 60000); // HomeGuard keeps it so
         } catch (SecurityException e) {
             return;
         }

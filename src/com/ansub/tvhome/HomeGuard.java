@@ -28,6 +28,7 @@ import java.util.Set;
 public class HomeGuard extends AccessibilityService {
     private static final long WAIT_MS = 350;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private TimeoutGuard timeouts; // keeps Control Center's screensaver and sleep waits as picked
     private final Set<String> otherHomes = new HashSet<>();
     private final Runnable bringHome = () -> {
         Intent i = new Intent(this, MainActivity.class)
@@ -41,6 +42,8 @@ public class HomeGuard extends AccessibilityService {
         findOtherHomes();
         running = this;
         offTimerAt(getSharedPreferences("config", 0).getLong("offAt", 0)); // a timer set before a restart
+        timeouts = new TimeoutGuard(this, handler, () -> front);
+        timeouts.start();
         IntentFilter off = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(screenOff, off, RECEIVER_NOT_EXPORTED);
         else registerReceiver(screenOff, off);
@@ -49,6 +52,7 @@ public class HomeGuard extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         running = null;
+        if (timeouts != null) timeouts.stop();
         handler.removeCallbacks(sleepNow); // the saved time stays, for when the service is back
         handler.removeCallbacks(warn);
         try { unregisterReceiver(screenOff); } catch (Exception ignored) {}
