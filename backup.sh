@@ -17,7 +17,7 @@ case "$TV" in *:*) adb connect "$TV" >/dev/null || true ;; esac
 FILE=/sdcard/Android/data/com.delaybrain.glasshouse/files/glasshouse-backup.json
 adb -s "$TV" shell "rm -f $FILE"
 adb -s "$TV" shell am start -n com.delaybrain.glasshouse/.MainActivity --es backup save >/dev/null 2>&1
-for i in 1 2 3 4 5; do
+for _ in 1 2 3 4 5; do
   adb -s "$TV" shell "[ -s $FILE ]" && break
   sleep 1
 done
