@@ -35,9 +35,17 @@ javac -nowarn -Xlint:-options -encoding UTF-8 -source 1.8 -target 1.8 -bootclass
 cp out/base.apk out/unsigned.apk; (cd out/dex && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f 4 out/unsigned.apk out/aligned.apk
 
-# A signing key is made on first build. Keep key.jks: updates must be signed with the same key.
-# (Releases are signed with their own key: set KEYSTORE and KEYSTORE_PASS.)
-KS=${KEYSTORE:-key.jks}; PASS=${KEYSTORE_PASS:-tvhome123}
+# A signing key is made on first build. Keep key.jks and key.pass: updates must be signed with the
+# same key. (Releases are signed with their own key: set KEYSTORE and KEYSTORE_PASS.)
+KS=${KEYSTORE:-key.jks}
+# The key's password: KEYSTORE_PASS, else key.pass (made with a new key, kept out of git), else the
+# old default of keys made before key.pass.
+if [ -z "$KEYSTORE_PASS" ] && [ ! -f "$KS" ] && [ ! -f key.pass ]; then
+  LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 > key.pass
+fi
+if [ -n "$KEYSTORE_PASS" ]; then PASS=$KEYSTORE_PASS
+elif [ -f key.pass ]; then PASS=$(cat key.pass)
+else PASS=tvhome123; fi
 [ -f "$KS" ] || keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias tvhome \
   -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=tvhome" >/dev/null 2>&1
 "$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --out out/glasshouse.apk out/aligned.apk
