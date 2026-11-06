@@ -56,6 +56,29 @@ fi
 
 adb -s "$TV" exec-out screencap -p > "$SHOT"
 
+echo "== Settings > Remote buttons: give Home the red button, then back to standard"
+# Taps the middle of the first element whose text starts with $1.
+tap() {
+  b=$(ui | tr '>' '\n' | grep "text=\"$1" | head -1 | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')
+  [ -n "$b" ] || fail "nothing on screen starts with '$1'"
+  set -- $b
+  adb -s "$TV" shell input tap $((($1 + $3) / 2)) $((($2 + $4) / 2))
+  sleep 1
+}
+row() { ui | tr '>' '\n' | grep -o "text=\"$1[^\"]*\"" | head -1; }
+adb -s "$TV" shell am start -n com.delaybrain.glasshouse/.MainActivity --es show remote >/dev/null; sleep 2
+row "Remote buttons" | grep -q . || fail "no Remote buttons panel"
+row "Home  ·  " | grep -q 'Home  ·  Home"' || fail "Home doesn't start on the standard button: $(row 'Home  ·  ')"
+tap "Home  ·  "
+row "Press the button now" | grep -q . || fail "no wait for a button"
+adb -s "$TV" shell input keyevent KEYCODE_PROG_RED; sleep 2
+row "Home  ·  " | grep -q 'Home  ·  Home, Prog red"' || fail "red button not set: $(row 'Home  ·  ')"
+tap "Reset to standard"
+tap 'Reset"'; sleep 1  # the question before it: Reset, not Cancel
+row "Home  ·  " | grep -q 'Home  ·  Home"' || fail "standard buttons not back: $(row 'Home  ·  ')"
+adb -s "$TV" shell input keyevent KEYCODE_BACK
+echo "   set and reset"
+
 echo "== check.sh refuses a list it can't read"
 list=$(mktemp)
 echo "# nothing to check" > "$list"

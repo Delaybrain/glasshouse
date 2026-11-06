@@ -122,10 +122,13 @@ final class SaverView extends FrameLayout {
     private void showPhoto() {
         final android.net.Uri uri = photos.get(next++ % photos.size());
         final int w = getResources().getDisplayMetrics().widthPixels, h = getResources().getDisplayMetrics().heightPixels;
+        final String fit = PhotoFit.get(getContext(), PhotoFit.SAVER);
         loader.execute(() -> {
             android.graphics.Bitmap b;
             try {
-                b = decode(uri, w, h);
+                // Laid out at screen size as picked (PhotoFit), so the full-screen view below only
+                // stretches a picture that's already the screen's shape: a 4:3 photo isn't squeezed.
+                b = PhotoFit.compose(decode(uri, w, h), w, h, fit);
             } catch (Exception | OutOfMemoryError e) {
                 return; // gone, or not a picture after all: the next slide tries the next one
             }
@@ -155,6 +158,7 @@ final class SaverView extends FrameLayout {
             int iw = info.getSize().getWidth(), ih = info.getSize().getHeight();
             float scale = Math.max((float) w / iw, (float) h / ih);
             if (scale < 1f) dec.setTargetSize(Math.max(1, Math.round(iw * scale)), Math.max(1, Math.round(ih * scale)));
+            dec.setAllocator(android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE); // drawn into a picture by PhotoFit
         });
     }
 

@@ -122,7 +122,7 @@ public class MainActivity extends Activity {
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
     // Most used first: the TV's own settings and brightness, then the looks, then what's set once.
     private static final String[] SETTINGS_ITEMS = {"TV settings", "Brightness", "Wallpaper", "Tiles", "Status bar",
-            "Screensaver", "Kids lock", "Back up & restore"};
+            "Screensaver", "Kids lock", "Back up & restore", "Remote buttons"};
     // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
     // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
     private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight",
@@ -177,6 +177,12 @@ public class MainActivity extends Activity {
     // HDMI input -> whether its last preview showed a picture. CEC only knows devices that speak it (a
     // PC doesn't); this is the next best thing, learnt each time a pill is looked at.
     private final java.util.Map<String, Boolean> signal = new java.util.HashMap<>();
+    // When each input's picture was last seen. A plain HDMI input says nothing when its device goes
+    // off (this TV calls every port connected), so a picture seen counts only for SIGNAL_FRESH_MS:
+    // after that the dot goes out until the preview sees one again.
+    private final java.util.Map<String, Long> signalAt = new java.util.HashMap<>();
+    private static final long SIGNAL_FRESH_MS = 10 * 60_000;
+    private final Runnable signalExpiry = this::forgetOldSignals;
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
     private final java.util.Map<String, Long> lastUsed = new java.util.HashMap<>(); // package -> last seen
@@ -470,6 +476,7 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        closeMenus(); // Home (or Apps, or a request from HomeGuard) starts from the page, like on a phone
         if (saveConfig(intent)) buildTiles();
         showRequested(intent);
     }
@@ -491,6 +498,7 @@ public class MainActivity extends Activity {
         if ("apps".equals(show)) root.post(this::showAllApps);
         if ("recents".equals(show)) root.post(this::showRecents);
         if ("control".equals(show)) startActivity(new Intent(this, ControlCenter.class)); // as the gear button does
+        if ("remote".equals(show)) root.post(this::showRemoteButtons);
         if ("pin".equals(show) && pkg != null) root.post(() -> askFirst(pkg, pkg));
     }
 
@@ -573,6 +581,7 @@ public class MainActivity extends Activity {
         card.setAlpha(0f);
         card.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(new DecelerateInterpolator()).start();
         d.show();
+        shown(d);
         if (first != null) first.requestFocus();
     }
 
@@ -653,6 +662,7 @@ public class MainActivity extends Activity {
         keepHomeGuardOn();
         restartStatus();
         KidLock.unlocked = null; // back home: a locked app asks again next time
+        forgetOldSignals(); // the TV may have slept, which holds back the timer for it
         // Rebuild only when apps were installed, removed or updated.
         if (dirty) {
             dirty = false;
@@ -819,6 +829,11 @@ public class MainActivity extends Activity {
     }
 
     private void onSignal(String inputId, boolean picture) {
+        if (picture) {
+            signalAt.put(inputId, System.currentTimeMillis());
+            root.removeCallbacks(signalExpiry);
+            root.postDelayed(signalExpiry, SIGNAL_FRESH_MS + 1000);
+        } else signalAt.remove(inputId);
         if (Boolean.valueOf(picture).equals(signal.get(inputId))) return;
         signal.put(inputId, picture);
         if (!inputId.equals(focusedKey)) return;
@@ -830,6 +845,27 @@ public class MainActivity extends Activity {
             dirty = true; // the dot comes and goes with a rebuild; focus and the preview stay put
             refreshApps();
         }
+    }
+
+    // Pictures seen too long ago no longer count (see signalAt); the one showing behind the page now
+    // is still being seen. Runs SIGNAL_FRESH_MS after the last one was seen and when Home comes back.
+    private void forgetOldSignals() {
+        long now = System.currentTimeMillis();
+        String live = preview.showingInput();
+        if (live != null) signalAt.put(live, now);
+        boolean changed = false;
+        for (java.util.Iterator<java.util.Map.Entry<String, Long>> it = signalAt.entrySet().iterator(); it.hasNext(); ) {
+            java.util.Map.Entry<String, Long> e = it.next();
+            if (now - e.getValue() < SIGNAL_FRESH_MS) continue;
+            it.remove();
+            changed |= signal.remove(e.getKey()) != null;
+        }
+        root.removeCallbacks(signalExpiry);
+        if (!signalAt.isEmpty()) root.postDelayed(signalExpiry, SIGNAL_FRESH_MS + 1000);
+        if (!changed) return;
+        if (focusedKey != null && isInput(focusedKey)) shelfSub.setText(subFor(focusedKey));
+        dirty = true;
+        refreshApps();
     }
 
     private String livePackage() {
@@ -892,18 +928,26 @@ public class MainActivity extends Activity {
     // Shows a gradient, or (past the gradients' rows) the saved photo.
     private void showWallpaper(int i) {
         if (i < WALLPAPER_NAMES.length) {
+            wallpaperDraws++; // a photo still being drawn mustn't replace this
             wallpaperView.setBackground(baked(background(WALLPAPERS[i])));
+            reglass();
             return;
         }
         String saved = getSharedPreferences(PREFS, 0).getString("wallpaper", "");
         if (saved.startsWith(PHOTO)) showPhotoWallpaper(Uri.parse(saved.substring(PHOTO.length())));
     }
 
-    // A photo as the wallpaper: read off the main thread at screen size and drawn once, with the same
-    // shade at the top as the gradients and a little more on the left and at the bottom, where the
-    // shelf's name and the dock sit. A photo that's gone leaves the gradient.
+    // A photo as the wallpaper: read off the main thread at screen size and drawn once (placed as picked
+    // under Photo position, see PhotoFit), with the same shade at the top as the gradients and a little
+    // more on the left and at the bottom, where the shelf's name and the dock sit. A photo that's gone
+    // leaves the gradient. Only the newest call shows its result, so trying positions quickly can't end
+    // on an older one.
+    private volatile int wallpaperDraws;
+
     private void showPhotoWallpaper(final Uri photo) {
         final android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        final String fit = PhotoFit.get(this, PhotoFit.WALLPAPER);
+        final int draw = ++wallpaperDraws;
         new Thread(() -> {
             Bitmap pic;
             try {
@@ -917,21 +961,25 @@ public class MainActivity extends Activity {
             } catch (Exception | OutOfMemoryError e) {
                 return;
             }
-            final Bitmap out = Bitmap.createBitmap(dm.widthPixels, dm.heightPixels, Bitmap.Config.ARGB_8888);
+            if (draw != wallpaperDraws) { pic.recycle(); return; }
+            final Bitmap out;
+            try {
+                out = PhotoFit.compose(pic, dm.widthPixels, dm.heightPixels, fit);
+            } catch (OutOfMemoryError e) {
+                return;
+            }
             Canvas c = new Canvas(out);
-            float s = Math.max((float) dm.widthPixels / pic.getWidth(), (float) dm.heightPixels / pic.getHeight());
-            float w = pic.getWidth() * s, h = pic.getHeight() * s;
-            android.graphics.RectF to = new android.graphics.RectF((dm.widthPixels - w) / 2, (dm.heightPixels - h) / 2,
-                    (dm.widthPixels + w) / 2, (dm.heightPixels + h) / 2);
-            c.drawBitmap(pic, null, to, new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG));
-            pic.recycle();
             for (GradientDrawable shade : new GradientDrawable[] {
                     new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0x59000000, 0x00000000, 0x00000000, 0x59000000}),
                     new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[] {0x66000000, 0x1A000000, 0x00000000})}) {
                 shade.setBounds(0, 0, dm.widthPixels, dm.heightPixels);
                 shade.draw(c);
             }
-            runOnUiThread(() -> wallpaperView.setBackground(new BitmapDrawable(getResources(), out)));
+            runOnUiThread(() -> {
+                if (draw != wallpaperDraws) return;
+                wallpaperView.setBackground(new BitmapDrawable(getResources(), out));
+                reglass();
+            });
         }, "wallpaper").start();
     }
 
@@ -1001,6 +1049,9 @@ public class MainActivity extends Activity {
         List<String> rows = new ArrayList<>(Arrays.asList(WALLPAPER_NAMES));
         rows.add(Strings.t("Your photo (USB)"));
         rows.add(Strings.t("Photo from your phone (Wi-Fi)"));
+        rows.add(Strings.t("Photo position"));
+        rows.add(Strings.t("Delete photos"));
+        final int[] previewing = {initial}; // the rows under the gradients all show the saved photo: drawn once
         panel(Strings.t("Wallpaper"), rows, pos -> {
             if (pos >= WALLPAPER_NAMES.length) return new LineIcon(LineIcon.PICTURE);
             int[] c = WALLPAPERS[pos];
@@ -1010,9 +1061,18 @@ public class MainActivity extends Activity {
             dot.setStroke(Math.max(1, px(2)), 0x26FFFFFF);
             dot.setSize(size, size);
             return dot;
-        }, size, initial, pos -> showWallpaper(pos == initial && wallpaperChanged ? wallpaper() : pos), which -> {
+        }, size, initial, pos -> {
+            // The rows under the gradients (photo, position, delete) show the saved wallpaper, not the
+            // last gradient passed on the way down.
+            int show = pos >= WALLPAPER_NAMES.length || (pos == initial && wallpaperChanged) ? wallpaper() : pos;
+            if (show == previewing[0] && pos != initial) return;
+            previewing[0] = show;
+            showWallpaper(show);
+        }, which -> {
             if (which >= WALLPAPER_NAMES.length) panelStays = true;
             if (which == WALLPAPER_NAMES.length) { choosePhotoWallpaper(); return; }
+            if (which == WALLPAPER_NAMES.length + 2) { photoPosition(PhotoFit.WALLPAPER); return; }
+            if (which == WALLPAPER_NAMES.length + 3) { deletePhotos(); return; }
             if (which > WALLPAPER_NAMES.length) {
                 showPhotoDrop(PhotoDrop.WALLPAPER, (n, photo) -> setPhotoWallpaper(photo), null);
                 return;
@@ -1691,7 +1751,8 @@ public class MainActivity extends Activity {
                 else if (which == 4) showStatusItems();
                 else if (which == 5) showScreensaver();
                 else if (which == 6) showKidLock();
-                else showBackup();
+                else if (which == 7) showBackup();
+                else showRemoteButtons();
             });
             return;
         } else if (isInput(key)) {
@@ -1993,6 +2054,10 @@ public class MainActivity extends Activity {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) choosePhotoWallpaper();
             return;
         }
+        if (code == ASK_DELETE_LIST) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) deletePhotos();
+            return;
+        }
         if (code == ASK_PHOTOS) {
             boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
             if (!ok) getSharedPreferences(PREFS, 0).edit().putString("saver", "gradients").apply();
@@ -2081,6 +2146,7 @@ public class MainActivity extends Activity {
         win.setLayout(-1, -1);
         win.setDimAmount(0.5f);
         d.show();
+        shown(d);
         if (five != null) five.requestFocus(); // the middle, nearest to every key
     }
 
@@ -2248,6 +2314,124 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ---- Remote buttons ----
+
+    // Which remote button does what (RemoteKeys): one row per job with its buttons, then a row back to
+    // the standard buttons. OK on a job waits for a button (pressButtonFor).
+    private void showRemoteButtons() {
+        final Runnable back = stepBack; // Settings, also after a button was set and this opens again
+        List<String> rows = new ArrayList<>();
+        for (int i = 0; i < RemoteKeys.ACTIONS.length; i++) rows.add(Strings.t(RemoteKeys.NAMES[i]) + "  ·  " + buttonsOf(RemoteKeys.ACTIONS[i]));
+        rows.add(Strings.t("Reset to standard"));
+        final Dialog[] panel = new Dialog[1];
+        panelSide = remoteHelp(null);
+        panel[0] = panel(Strings.t("Remote buttons"), rows, which -> {
+            if (which == RemoteKeys.ACTIONS.length) {
+                panelStays = true;
+                confirm(Strings.t("Reset all remote buttons to the standard ones?"), null, Strings.t("Reset"), () -> {
+                    RemoteKeys.reset(this);
+                    toast("Standard buttons");
+                    panel[0].dismiss();
+                    stepBack = back;
+                    showRemoteButtons();
+                });
+                return;
+            }
+            panelStays = true;
+            pressButtonFor(which, () -> {
+                panel[0].dismiss();
+                stepBack = back;
+                showRemoteButtons();
+            });
+        });
+    }
+
+    // The card beside Remote buttons that says how it works, with a drawing of a remote: the three
+    // steps, and what can't be changed. While a button is awaited (waitingFor, the job's name) it says
+    // just that: press it now, Back to stop.
+    private View remoteHelp(String waitingFor) {
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int room = sw - px(Style.PANEL_W + Style.PANEL_MARGIN), pad = px(DOCK_PAD);
+        int cw = Math.min(px(980), room - 2 * px(Style.PANEL_MARGIN)), ch = px(500);
+        int cx = (room - cw) / 2, cy = (sh - ch) / 2;
+        FrameLayout card = new FrameLayout(this);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        View sketch = new View(this);
+        sketch.setBackground(new RemoteSketch(Math.max(2, px(3))));
+        int skW = px(170);
+        card.addView(sketch, at(pad, pad, skW, ch - 2 * pad));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.setGravity(Gravity.CENTER_VERTICAL);
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(Strings.t(waitingFor == null ? "How it works" : "Press the button now"));
+        words.addView(head);
+        List<String> lines = new ArrayList<>();
+        if (waitingFor == null) {
+            lines.add("1   " + Strings.t("In the list, pick what a button should do."));
+            lines.add("2   " + Strings.t("Then press that button on the remote."));
+            lines.add("3   " + Strings.t("Done: from now on it does that, everywhere."));
+        } else {
+            lines.add(String.format(Strings.t("Press the button on the remote for: %s"), waitingFor));
+        }
+        for (String l : lines) {
+            TextView t = text(px(Style.BODY), Style.INK, regular);
+            t.setText(l);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+            lp.topMargin = px(20);
+            words.addView(t, lp);
+        }
+        TextView note = text(px(Style.LABEL), Style.INK_3, regular);
+        note.setText(Strings.t(waitingFor == null ? "Arrows, OK, Back, volume and the digits stay as they are." : "Back: cancel"));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = px(32);
+        words.addView(note, lp);
+        int wx = pad + skW + px(48);
+        card.addView(words, at(wx, 0, cw - wx - pad, ch));
+        card.setLayoutParams(at(cx, cy, cw, ch));
+        return card;
+    }
+
+    private String buttonsOf(String action) {
+        StringBuilder b = new StringBuilder();
+        for (int code : RemoteKeys.buttons(this, action)) b.append(b.length() > 0 ? ", " : "").append(RemoteKeys.name(code));
+        return b.length() > 0 ? b.toString() : Strings.t("No button");
+    }
+
+    // Waits for the button for job number which: HomeGuard catches it when it's on (it sees every
+    // button, Home too), else this panel does. Back ends the wait; "Remove its buttons" leaves the job
+    // without one. done runs once something changed.
+    private void pressButtonFor(final int which, final Runnable done) {
+        final String action = RemoteKeys.ACTIONS[which];
+        final HomeGuard.Learner got = code -> {
+            HomeGuard.learning = null;
+            RemoteKeys.set(this, code, action);
+            android.widget.Toast.makeText(this, RemoteKeys.name(code) + "  →  " + Strings.t(RemoteKeys.NAMES[which]),
+                    android.widget.Toast.LENGTH_SHORT).show();
+            done.run();
+        };
+        panelSide = remoteHelp(Strings.t(RemoteKeys.NAMES[which]));
+        final Dialog d = panel(Strings.t(RemoteKeys.NAMES[which]), Arrays.asList(Strings.t("Press the button now"),
+                Strings.t("Remove its buttons")), pick -> {
+            if (pick == 0) { panelStays = true; return; } // only the hint
+            RemoteKeys.clear(this, action);
+            done.run();
+        });
+        d.setOnKeyListener((dialog, code, ev) -> {
+            if (!RemoteKeys.choosable(code)) return false;
+            if (ev.getAction() == KeyEvent.ACTION_UP && HomeGuard.learning != null) {
+                d.dismiss();
+                got.got(code);
+            }
+            return true;
+        });
+        d.setOnDismissListener(x -> HomeGuard.learning = null);
+        HomeGuard.learning = code -> {
+            d.dismiss();
+            got.got(code);
+        };
+    }
+
     // ---- Screensaver ----
 
     private static final String[] SAVER_LOOKS = {"Colour gradients", "Your photos (USB)"};
@@ -2262,7 +2446,8 @@ public class MainActivity extends Activity {
         List<String> rows = new ArrayList<>(Arrays.asList(translated(SAVER_LOOKS)));
         rows.add(Strings.t("Photos from your phone (Wi-Fi)"));
         rows.add(Strings.t("Show now"));
-        rows.add(Strings.t("Delete received photos"));
+        rows.add(Strings.t("Photo position"));
+        rows.add(Strings.t("Delete photos"));
         final boolean[] on = new boolean[rows.size()];
         on[SaverView.photos(this) ? 1 : 0] = true;
         panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
@@ -2276,8 +2461,11 @@ public class MainActivity extends Activity {
                     if (redrawChecks != null) redrawChecks.run();
                 });
                 else if (action == 1) startActivity(new Intent(this, SaverPreview.class));
-                else android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"),
-                        PhotoDrop.deleteReceived(this)), android.widget.Toast.LENGTH_SHORT).show();
+                else {
+                    panelStays = true;
+                    if (action == 2) photoPosition(PhotoFit.SAVER);
+                    else deletePhotos();
+                }
                 return;
             }
             on[0] = which == 0;
@@ -2288,6 +2476,244 @@ public class MainActivity extends Activity {
             if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[] {perm}, ASK_PHOTOS);
             else if (SaverView.countPhotos(this) == 0) toast("No photos found");
         });
+    }
+
+    // ---- Photo position and deleting photos (Wallpaper and Screensaver) ----
+
+    // Where a photo of another shape sits on the screen (PhotoFit), for the wallpaper or the
+    // screensaver: ticked is the one picked. The wallpaper changes at once behind the panel.
+    private void photoPosition(final String key) {
+        final boolean[] on = new boolean[PhotoFit.ALL.length];
+        on[Arrays.asList(PhotoFit.ALL).indexOf(PhotoFit.get(this, key))] = true;
+        panel(Strings.t("Photo position"), Arrays.asList(translated(PhotoFit.NAMES)), null, 0, -1, null, on, which -> {
+            for (int i = 0; i < on.length; i++) on[i] = i == which;
+            PhotoFit.set(this, key, PhotoFit.ALL[which]);
+            if (PhotoFit.WALLPAPER.equals(key) && wallpaper() == WALLPAPER_NAMES.length) showWallpaper(wallpaper());
+        });
+    }
+
+    private static final int ASK_DELETE_LIST = 4, ASK_DELETE = 5;
+    private List<Uri> deleting, deletedFirst; // photos Android is asked about, and the ones already gone
+    private Runnable afterDelete;             // what to do once they're gone
+
+    // The photos on the TV and USB sticks, newest first, each with a small picture, and at the end a row
+    // that deletes all of them. Each asks first, the same question in this app's look.
+    private void deletePhotos() {
+        final Runnable back = takeBack();
+        String perm = android.os.Build.VERSION.SDK_INT >= 33 ? PHOTOS : PHOTOS_OLD;
+        if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
+            stepBack = back;
+            requestPermissions(new String[] {perm}, ASK_DELETE_LIST);
+            return;
+        }
+        final List<Uri> photos = new ArrayList<>();
+        SaverView.findPhotos(this, photos, 300);
+        if (photos.isEmpty()) {
+            if (back != null) root.post(back);
+            toast("No photos found");
+            return;
+        }
+        final List<String> rows = new ArrayList<>();
+        for (Uri u : photos) rows.add(photoName(u));
+        rows.add(Strings.t("Delete all photos"));
+        final int size = px(64);
+        final Dialog[] list = new Dialog[1];
+        final Runnable again = () -> {
+            if (list[0] != null) list[0].dismiss();
+            stepBack = back;
+            deletePhotos();
+        };
+        stepBack = back;
+        list[0] = panel(Strings.t("Delete photos"), rows, pos -> pos == photos.size() ? new LineIcon(LineIcon.PICTURE)
+                : new BitmapDrawable(getResources(), getContentResolver().loadThumbnail(photos.get(pos),
+                        new android.util.Size(size, size), null)), size, -1, null, which -> {
+            panelStays = true;
+            if (which == photos.size()) {
+                confirm(String.format(Strings.t("Delete all %d photos?"), photos.size()), null, Strings.t("Delete"),
+                        () -> removePhotos(photos, again));
+                return;
+            }
+            // Android asks itself before this app deletes a photo it didn't make, unless Glasshouse may
+            // manage media (install.sh allows that): then this question, with the photo, is the only one.
+            final Uri photo = photos.get(which);
+            if (!ours(photo) && !mayManageMedia()) {
+                removePhotos(java.util.Collections.singletonList(photo), again);
+                return;
+            }
+            Drawable preview = null;
+            try {
+                preview = new BitmapDrawable(getResources(), getContentResolver().loadThumbnail(photo,
+                        new android.util.Size(px(480), px(270)), null));
+            } catch (Exception ignored) {}
+            confirm(Strings.t("Delete this photo?"), preview, Strings.t("Delete"),
+                    () -> removePhotos(java.util.Collections.singletonList(photo), again));
+        });
+    }
+
+    // Whether this app put the photo there (sent over Wi-Fi): those it may delete without Android asking.
+    private boolean ours(Uri u) {
+        try (android.database.Cursor c = getContentResolver().query(u,
+                new String[] {android.provider.MediaStore.MediaColumns.OWNER_PACKAGE_NAME}, null, null, null)) {
+            return c != null && c.moveToFirst() && getPackageName().equals(c.getString(0));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // A question in the middle of the screen, on glass like the panels: a title, a picture if given
+    // (the photo about to be deleted), and two buttons, the action and Cancel. Cancel has the focus, so
+    // an OK pressed too fast changes nothing. Back is Cancel.
+    private void confirm(String question, Drawable picture, String yes, final Runnable then) {
+        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        final Runnable back = takeBack();
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); });
+        int pad = px(DOCK_PAD), cw = px(720), btnH = px(72), gap = px(16);
+        int picW = cw - 2 * pad, picH = picture == null ? 0 : picW * 9 / 16;
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(question);
+        head.setGravity(Gravity.CENTER);
+        head.measure(View.MeasureSpec.makeMeasureSpec(cw - 2 * pad, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED);
+        int headH = head.getMeasuredHeight();
+        int ch = pad + headH + (picture == null ? 0 : px(24) + picH) + px(32) + btnH + pad;
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int cx = (sw - cw) / 2, cy = (sh - ch) / 2;
+        FrameLayout card = new FrameLayout(this);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        card.addView(head, at(pad, pad, cw - 2 * pad, headH));
+        int y = pad + headH;
+        if (picture != null) {
+            ImageView pic = new ImageView(this);
+            pic.setImageDrawable(picture);
+            pic.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            pic.setClipToOutline(true);
+            pic.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                @Override public void getOutline(View v, android.graphics.Outline o) {
+                    o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), px(Style.RADIUS_TILE));
+                }
+            });
+            card.addView(pic, at(pad, y + px(24), picW, picH));
+            y += px(24) + picH;
+        }
+        y += px(32);
+        int bw = (cw - 2 * pad - gap) / 2;
+        View cancel = null;
+        String[] labels = {yes, Strings.t("Cancel")};
+        for (int i = 0; i < 2; i++) {
+            final boolean ok = i == 0;
+            final TextView b = text(px(Style.LABEL), Style.INK, regular);
+            b.setText(labels[i]);
+            b.setGravity(Gravity.CENTER);
+            b.setSingleLine(true);
+            final GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(btnH / 2f);
+            bg.setColor(Style.LIQUID_GLOSS);
+            b.setBackground(bg);
+            b.setFocusable(true);
+            b.setOnFocusChangeListener((v, has) -> {
+                bg.setColor(has ? Style.FOCUS : Style.LIQUID_GLOSS);
+                b.setTextColor(has ? Style.FOCUS_INK : Style.INK);
+            });
+            b.setOnClickListener(v -> {
+                d.dismiss();
+                if (ok) then.run();
+            });
+            card.addView(b, at(pad + i * (bw + gap), y, bw, btnH));
+            if (!ok) cancel = b;
+        }
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(card, at(cx, cy, cw, ch));
+        d.setContentView(frame);
+        Window win = d.getWindow();
+        win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        win.setLayout(-1, -1);
+        win.setDimAmount(0.5f);
+        d.show();
+        shown(d);
+        if (cancel != null) cancel.requestFocus();
+    }
+
+    private String photoName(Uri u) {
+        String name = u.getLastPathSegment();
+        try (android.database.Cursor c = getContentResolver().query(u,
+                new String[] {android.provider.MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst() && c.getString(0) != null) name = c.getString(0);
+        } catch (Exception ignored) {}
+        return name;
+    }
+
+    // From Android 12 the user (or install.sh, with appops) can let an app manage media: it then deletes
+    // any photo without Android asking each time.
+    private boolean mayManageMedia() {
+        try {
+            return android.os.Build.VERSION.SDK_INT >= 31 && android.provider.MediaStore.canManageMedia(this);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Deletes photos. This app's own (sent over Wi-Fi) go at once; the rest through Android, which asks
+    // first in its own window unless this app may manage media (from Android 11; before that they
+    // can't be deleted from here). done runs at the end, whatever was deleted.
+    private void removePhotos(List<Uri> photos, Runnable done) {
+        List<Uri> gone = new ArrayList<>(), ask = new ArrayList<>();
+        for (Uri u : photos) {
+            try {
+                if (getContentResolver().delete(u, null, null) > 0) gone.add(u);
+            } catch (SecurityException notOurs) {
+                ask.add(u);
+            } catch (Exception ignored) {}
+        }
+        if (!ask.isEmpty() && android.os.Build.VERSION.SDK_INT >= 30) {
+            try {
+                android.app.PendingIntent req = android.provider.MediaStore.createDeleteRequest(getContentResolver(), ask);
+                deleting = ask;
+                deletedFirst = gone;
+                afterDelete = done;
+                startIntentSenderForResult(req.getIntentSender(), ASK_DELETE, null, 0, 0, 0);
+                return;
+            } catch (Exception ignored) {}
+        }
+        if (!ask.isEmpty()) toast("Can't delete this photo");
+        photosGone(gone);
+        done.run();
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code != ASK_DELETE || deleting == null) return;
+        List<Uri> gone = new ArrayList<>(deletedFirst);
+        if (result == RESULT_OK) gone.addAll(deleting);
+        Runnable done = afterDelete;
+        deleting = deletedFirst = null;
+        afterDelete = null;
+        photosGone(gone);
+        if (done != null) done.run();
+    }
+
+    // Says how many went; if the wallpaper was one of them, back to the standard wallpaper.
+    private void photosGone(List<Uri> gone) {
+        if (gone.isEmpty()) return;
+        android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"), gone.size()),
+                android.widget.Toast.LENGTH_SHORT).show();
+        String saved = getSharedPreferences(PREFS, 0).getString("wallpaper", "");
+        if (!saved.startsWith(PHOTO)) return;
+        long wall;
+        try {
+            wall = android.content.ContentUris.parseId(Uri.parse(saved.substring(PHOTO.length())));
+        } catch (Exception notAMediaUri) {
+            return;
+        }
+        for (Uri u : gone) {
+            try {
+                if (android.content.ContentUris.parseId(u) != wall) continue;
+            } catch (Exception e) {
+                continue;
+            }
+            getSharedPreferences(PREFS, 0).edit().remove("wallpaper").apply();
+            showWallpaper(wallpaper());
+            return;
+        }
     }
 
     // The card for sending photos over Wi-Fi: a QR code and the address to open on a phone or computer,
@@ -2376,6 +2802,7 @@ public class MainActivity extends Activity {
         win.setLayout(-1, -1);
         win.setDimAmount(0.5f);
         d.show();
+        shown(d);
         return d;
     }
 
@@ -2449,6 +2876,37 @@ public class MainActivity extends Activity {
     private boolean panelStays;
     private Runnable redrawChecks; // the last panel with switches: draws its ticks again
 
+    // Every menu, panel and card on screen, so Home can close them all at once (Back closes one step).
+    private final List<Dialog> openDialogs = new ArrayList<>();
+    // Open panels and how to take their glass again (see panel).
+    private final java.util.Map<Dialog, Runnable> glassOf = new java.util.LinkedHashMap<>();
+
+    private void shown(Dialog d) {
+        for (java.util.Iterator<Dialog> it = openDialogs.iterator(); it.hasNext(); ) if (!it.next().isShowing()) it.remove();
+        openDialogs.add(d);
+    }
+
+    private void closeMenus() {
+        List<Dialog> all = new ArrayList<>(openDialogs);
+        openDialogs.clear();
+        stepBack = null;
+        boolean any = false;
+        for (int i = all.size() - 1; i >= 0; i--) {
+            if (!all.get(i).isShowing()) continue;
+            all.get(i).dismiss();
+            any = true;
+        }
+        // A wallpaper being tried in the Wallpaper panel goes back to the saved one, as Back would.
+        if (any) showWallpaper(wallpaper());
+    }
+
+    private void reglass() {
+        for (java.util.Iterator<Dialog> it = glassOf.keySet().iterator(); it.hasNext(); ) if (!it.next().isShowing()) it.remove();
+        for (Runnable r : new ArrayList<>(glassOf.values())) r.run();
+    }
+
+    private View panelSide; // set just before panel(): shown beside it, in the same window
+
     private Runnable takeBack() {
         Runnable back = stepBack;
         stepBack = null;
@@ -2474,12 +2932,19 @@ public class MainActivity extends Activity {
                          final int selected, final Pick preview, final boolean[] checks, final Pick pick) {
         final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
         final Runnable back = takeBack();
+        final View side = panelSide; // a card beside the panel (Remote buttons' help), or null
+        panelSide = null;
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
         int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
-        box.setBackground(glass(new android.graphics.Rect(sw - px(Style.PANEL_W + Style.PANEL_MARGIN),
-                px(Style.PANEL_MARGIN), sw - px(Style.PANEL_MARGIN), sh - px(Style.PANEL_MARGIN))));
+        final android.graphics.Rect glassAt = new android.graphics.Rect(sw - px(Style.PANEL_W + Style.PANEL_MARGIN),
+                px(Style.PANEL_MARGIN), sw - px(Style.PANEL_MARGIN), sh - px(Style.PANEL_MARGIN));
+        box.setBackground(glass(glassAt));
+        // The glass shows the page as it was when the panel opened: when the wallpaper changes under it
+        // (trying wallpapers, a photo's position), it's taken again, or it would keep the old colours.
+        glassOf.put(d, () -> box.setBackground(glass(glassAt)));
+        d.setOnDismissListener(x -> glassOf.remove(d));
 
         TextView head = text(px(Style.TITLE), Style.INK, semibold);
         head.setText(title);
@@ -2565,17 +3030,19 @@ public class MainActivity extends Activity {
 
         // Floating, as far from the screen's edges as the dock.
         FrameLayout frame = new FrameLayout(this);
-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, -1);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(side == null ? -1 : px(Style.PANEL_W), -1, Gravity.END);
         bp.setMargins(0, px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN), px(Style.PANEL_MARGIN));
         frame.addView(box, bp);
+        if (side != null) frame.addView(side); // placed by its own layout params, in screen pixels
         d.setContentView(frame);
         Window w = d.getWindow();
         w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        w.setLayout(px(Style.PANEL_W + Style.PANEL_MARGIN), -1);
+        w.setLayout(side == null ? px(Style.PANEL_W + Style.PANEL_MARGIN) : -1, -1);
         w.setGravity(Gravity.END);
         // A preview, or switches that change the page at once, need the home screen undimmed.
         w.setDimAmount(preview != null || checks != null ? 0f : 0.6f);
         d.show();
+        shown(d);
         return d;
     }
 
@@ -2643,6 +3110,7 @@ public class MainActivity extends Activity {
         lp.height = h;
         win.setAttributes(lp);
         d.show();
+        shown(d);
     }
 
     // Hold OK (or Menu) on a top-row app: move it, swap it for another, or take it off the home
@@ -2753,12 +3221,22 @@ public class MainActivity extends Activity {
     }
 
     // Remote buttons that reach the home screen because no app is in front. The rest (Home, volume,
-    // power, the app buttons) Android handles before they get here.
+    // power, the app buttons) Android handles before they get here. With HomeGuard on, the buttons it
+    // has a job for never get here; without it, the ones that do get here do the same job.
     @Override
     public boolean onKeyDown(int code, KeyEvent ev) {
         if (movingKey != null) return super.onKeyDown(code, ev);
-        if (code == KeyEvent.KEYCODE_ALL_APPS) {
-            if (ev.getRepeatCount() == 0) showAllApps();
+        String action = RemoteKeys.action(this, code);
+        // Before buttons were chosen on the TV only Apps and Guide were used here, as they still are.
+        if (!RemoteKeys.chosen(this) && code != KeyEvent.KEYCODE_ALL_APPS && code != KeyEvent.KEYCODE_GUIDE) action = null;
+        if (action != null && !RemoteKeys.HOME.equals(action)) {
+            if (ev.getRepeatCount() > 0 || RemoteKeys.OFF.equals(action)) return true;
+            if (RemoteKeys.APPS.equals(action)) showAllApps();
+            else if (RemoteKeys.LIVE.equals(action)) openLiveTv();
+            else {
+                Intent i = RemoteKeys.CONTROL.equals(action) ? new Intent(this, ControlCenter.class) : HomeGuard.accountSettings(this);
+                try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
+            }
             return true;
         }
         boolean live = (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9)

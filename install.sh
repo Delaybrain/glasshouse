@@ -226,6 +226,7 @@ sh_tv appops set $P GET_USAGE_STATS allow >/dev/null 2>&1 || true  # "last opene
 sh_tv pm grant $P android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 || true  # sleep row; HomeGuard puts itself back
 sh_tv appops set $P WRITE_SETTINGS allow >/dev/null 2>&1 || true  # Control Center's screensaver row
 sh_tv pm grant $P android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1 || true  # Control Center's Bluetooth row
+sh_tv appops set $P MANAGE_MEDIA allow >/dev/null 2>&1 || true  # Delete photos asks once, not twice
 sh_tv settings put secure screensaver_components $P/.Screensaver >/dev/null 2>&1 || true
 sh homeguard.sh "$TV" on >/dev/null 2>&1 || echo "HomeGuard (Home, settings and other buttons) couldn't be turned on: run sh homeguard.sh $TARGET on" >&2
 

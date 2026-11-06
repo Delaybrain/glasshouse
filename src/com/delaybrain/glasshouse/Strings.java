@@ -28,6 +28,10 @@ final class Strings {
         "Your photo (USB)", "Photo from your phone (Wi-Fi)", "Choose a photo",
         "Over Wi-Fi (phone or computer)", "Connected to %s", "Drop photos here or choose them",
         "Done: %d of %d on the TV", "Download backup", "Upload backup",
+        "Remote buttons", "Home", "Account", "No button", "Standard buttons", "Press the button on the remote now", "Remove its buttons",
+        "Photo position", "Top", "Middle", "Bottom", "Whole photo", "Delete photos", "Delete photo", "Keep", "Can't delete this photo",
+        "Delete this photo?", "Delete", "Cancel", "Reset all remote buttons to the standard ones?", "Reset",
+        "How it works", "In the list, pick what a button should do.", "Then press that button on the remote.", "Done: from now on it does that, everywhere.", "Arrows, OK, Back, volume and the digits stay as they are.", "Press the button now", "Press the button on the remote for: %s", "Back: cancel", "Reset to standard", "Delete all photos", "Delete all %d photos?",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -54,6 +58,10 @@ final class Strings {
             "صورتك (USB)", "صورة من هاتفك (Wi-Fi)", "اختر صورة",
             "عبر Wi-Fi (هاتف أو حاسوب)", "متصل بـ %s", "اسحب الصور هنا أو اخترها", "تم: %d من %d على التلفزيون",
             "تنزيل النسخة الاحتياطية", "رفع نسخة احتياطية",
+            "أزرار جهاز التحكم", "الرئيسية", "الحساب", "لا يوجد زر", "الأزرار الافتراضية", "اضغط الزر على جهاز التحكم الآن", "إزالة أزراره",
+            "موضع الصورة", "أعلى", "وسط", "أسفل", "الصورة كاملة", "حذف الصور", "حذف الصورة", "إبقاء", "تعذر حذف هذه الصورة",
+            "هل تريد حذف هذه الصورة؟", "حذف", "إلغاء", "إعادة كل أزرار جهاز التحكم إلى الافتراضية؟", "إعادة تعيين",
+            "طريقة الاستخدام", "اختر في القائمة ما يجب أن يفعله الزر.", "ثم اضغط ذلك الزر على جهاز التحكم.", "تم: من الآن يقوم الزر بذلك في كل مكان.", "الأسهم وOK والرجوع والصوت والأرقام تبقى كما هي.", "اضغط الزر الآن", "اضغط الزر على جهاز التحكم لـ: %s", "رجوع: إلغاء", "إعادة إلى الافتراضي", "حذف كل الصور", "حذف كل الصور (%d)؟",
         });
         LANGS.put("de", new String[] {
             "Einstellungen", "App hinzufügen", "Netzwerk", "Offline", "Ton", "Bild",
@@ -76,6 +84,10 @@ final class Strings {
             "Eigenes Foto (USB)", "Foto vom Handy (WLAN)", "Foto auswählen",
             "Über WLAN (Handy oder PC)", "Verbunden mit %s", "Fotos hierher ziehen oder auswählen",
             "Fertig: %d von %d auf dem TV", "Sicherung herunterladen", "Sicherung hochladen",
+            "Fernbedienungstasten", "Startseite", "Konto", "Keine Taste", "Standardtasten", "Jetzt die Taste auf der Fernbedienung drücken", "Tasten entfernen",
+            "Fotoposition", "Oben", "Mitte", "Unten", "Ganzes Foto", "Fotos löschen", "Foto löschen", "Behalten", "Dieses Foto kann nicht gelöscht werden",
+            "Dieses Foto löschen?", "Löschen", "Abbrechen", "Alle Fernbedienungstasten auf Standard zurücksetzen?", "Zurücksetzen",
+            "So geht's", "Wähle in der Liste, was eine Taste tun soll.", "Drück dann diese Taste auf der Fernbedienung.", "Fertig: Ab jetzt macht sie das, überall.", "Pfeile, OK, Zurück, Lautstärke und Ziffern bleiben, wie sie sind.", "Jetzt die Taste drücken", "Drück die Taste auf der Fernbedienung für: %s", "Zurück: abbrechen", "Auf Standard zurücksetzen", "Alle Fotos löschen", "Alle %d Fotos löschen?",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",
@@ -100,6 +112,10 @@ final class Strings {
             "Tu foto (USB)", "Foto desde el móvil (Wi-Fi)", "Elige una foto",
             "Por Wi-Fi (móvil u ordenador)", "Conectado a %s", "Arrastra fotos aquí o elígelas",
             "Listo: %d de %d en la TV", "Descargar copia", "Subir copia",
+            "Botones del mando", "Inicio", "Cuenta", "Sin botón", "Botones estándar", "Pulsa ahora el botón del mando", "Quitar sus botones",
+            "Posición de la foto", "Arriba", "Centro", "Abajo", "Foto completa", "Eliminar fotos", "Eliminar foto", "Conservar", "No se puede eliminar esta foto",
+            "¿Eliminar esta foto?", "Eliminar", "Cancelar", "¿Restablecer todos los botones del mando a los estándar?", "Restablecer",
+            "Cómo funciona", "En la lista, elige qué debe hacer un botón.", "Después pulsa ese botón en el mando.", "Listo: a partir de ahora lo hace en todas partes.", "Las flechas, OK, Atrás, el volumen y los números no cambian.", "Pulsa el botón ahora", "Pulsa el botón del mando para: %s", "Atrás: cancelar", "Restablecer valores estándar", "Eliminar todas las fotos", "¿Eliminar las %d fotos?",
         });
         LANGS.put("fr", new String[] {
             "Paramètres", "Ajouter une app", "Réseau", "Hors ligne", "Son", "Image",
@@ -126,6 +142,10 @@ final class Strings {
             "Votre photo (USB)", "Photo depuis le téléphone (Wi-Fi)", "Choisir une photo",
             "Par Wi-Fi (téléphone ou ordinateur)", "Connecté à %s", "Déposez des photos ici ou choisissez-les",
             "Terminé : %d sur %d sur la TV", "Télécharger la sauvegarde", "Envoyer une sauvegarde",
+            "Boutons de la télécommande", "Accueil", "Compte", "Aucun bouton", "Boutons par défaut", "Appuyez sur le bouton de la télécommande", "Retirer ses boutons",
+            "Position de la photo", "Haut", "Milieu", "Bas", "Photo entière", "Supprimer des photos", "Supprimer la photo", "Garder", "Impossible de supprimer cette photo",
+            "Supprimer cette photo ?", "Supprimer", "Annuler", "Rétablir tous les boutons de la télécommande par défaut ?", "Rétablir",
+            "Comment faire", "Dans la liste, choisissez ce que doit faire un bouton.", "Puis appuyez sur ce bouton de la télécommande.", "C'est fait : il le fera désormais partout.", "Les flèches, OK, Retour, le volume et les chiffres ne changent pas.", "Appuyez sur le bouton maintenant", "Appuyez sur le bouton de la télécommande pour : %s", "Retour : annuler", "Rétablir par défaut", "Supprimer toutes les photos", "Supprimer les %d photos ?",
         });
         LANGS.put("hi", new String[] {
             "सेटिंग्स", "ऐप जोड़ें", "नेटवर्क", "ऑफ़लाइन", "ध्वनि", "चित्र",
@@ -148,6 +168,10 @@ final class Strings {
             "आपकी फ़ोटो (USB)", "फ़ोन से फ़ोटो (Wi-Fi)", "फ़ोटो चुनें",
             "Wi-Fi से (फ़ोन या कंप्यूटर)", "%s से जुड़ा", "फ़ोटो यहाँ खींचें या चुनें",
             "हो गया: टीवी पर %d में से %d", "बैकअप डाउनलोड करें", "बैकअप अपलोड करें",
+            "रिमोट के बटन", "होम", "खाता", "कोई बटन नहीं", "मानक बटन", "अब रिमोट पर बटन दबाएँ", "इसके बटन हटाएँ",
+            "फ़ोटो की जगह", "ऊपर", "बीच", "नीचे", "पूरी फ़ोटो", "फ़ोटो हटाएँ", "यह फ़ोटो हटाएँ", "रखें", "यह फ़ोटो हटाई नहीं जा सकती",
+            "यह फ़ोटो हटाएँ?", "हटाएँ", "रद्द करें", "रिमोट के सभी बटन मानक पर वापस करें?", "रीसेट करें",
+            "कैसे करें", "सूची में चुनें कि बटन क्या करे।", "फिर रिमोट पर वह बटन दबाएँ।", "हो गया: अब वह हर जगह यही करेगा।", "तीर, OK, वापस, आवाज़ और अंक जैसे हैं वैसे ही रहते हैं।", "अब बटन दबाएँ", "रिमोट पर इसके लिए बटन दबाएँ: %s", "वापस: रद्द करें", "मानक पर रीसेट करें", "सभी फ़ोटो हटाएँ", "सभी %d फ़ोटो हटाएँ?",
         });
         String[] id = {
             "Setelan", "Tambah aplikasi", "Jaringan", "Offline", "Suara", "Gambar",
@@ -172,6 +196,10 @@ final class Strings {
             "Foto Anda (USB)", "Foto dari ponsel (Wi-Fi)", "Pilih foto",
             "Lewat Wi-Fi (ponsel atau komputer)", "Terhubung ke %s", "Tarik foto ke sini atau pilih",
             "Selesai: %d dari %d di TV", "Unduh cadangan", "Unggah cadangan",
+            "Tombol remote", "Beranda", "Akun", "Tanpa tombol", "Tombol standar", "Tekan tombol di remote sekarang", "Hapus tombolnya",
+            "Posisi foto", "Atas", "Tengah", "Bawah", "Seluruh foto", "Hapus foto", "Hapus foto ini", "Simpan", "Foto ini tidak dapat dihapus",
+            "Hapus foto ini?", "Hapus", "Batal", "Kembalikan semua tombol remote ke standar?", "Atur ulang",
+            "Caranya", "Di daftar, pilih apa yang harus dilakukan tombol.", "Lalu tekan tombol itu di remote.", "Selesai: mulai sekarang tombol itu melakukannya di mana saja.", "Panah, OK, Kembali, volume, dan angka tetap seperti semula.", "Tekan tombolnya sekarang", "Tekan tombol di remote untuk: %s", "Kembali: batal", "Kembalikan ke standar", "Hapus semua foto", "Hapus semua %d foto?",
         };
         LANGS.put("id", id);
         LANGS.put("in", id); // Java's old code for Indonesian, which Android still reports
@@ -199,6 +227,10 @@ final class Strings {
             "La tua foto (USB)", "Foto dal telefono (Wi-Fi)", "Scegli una foto",
             "Via Wi-Fi (telefono o computer)", "Connesso a %s", "Trascina qui le foto o sceglile",
             "Fatto: %d di %d sulla TV", "Scarica il backup", "Carica un backup",
+            "Tasti del telecomando", "Home", "Account", "Nessun tasto", "Tasti standard", "Premi ora il tasto sul telecomando", "Rimuovi i suoi tasti",
+            "Posizione della foto", "In alto", "Al centro", "In basso", "Foto intera", "Elimina foto", "Elimina questa foto", "Tieni", "Impossibile eliminare questa foto",
+            "Eliminare questa foto?", "Elimina", "Annulla", "Ripristinare tutti i tasti del telecomando a quelli standard?", "Ripristina",
+            "Come funziona", "Nell'elenco scegli cosa deve fare un tasto.", "Poi premi quel tasto sul telecomando.", "Fatto: da ora lo fa ovunque.", "Frecce, OK, Indietro, volume e numeri restano come sono.", "Premi il tasto ora", "Premi il tasto del telecomando per: %s", "Indietro: annulla", "Ripristina standard", "Elimina tutte le foto", "Eliminare tutte le %d foto?",
         });
         LANGS.put("ja", new String[] {
             "設定", "アプリを追加", "ネットワーク", "オフライン", "サウンド", "画像",
@@ -218,6 +250,10 @@ final class Strings {
             "あなたの写真 (USB)", "スマホから写真 (Wi-Fi)", "写真を選ぶ",
             "Wi-Fi経由 (スマホまたはPC)", "%s に接続中", "ここに写真をドロップするか選択", "完了: %d / %d 枚をテレビへ", "バックアップをダウンロード",
             "バックアップをアップロード",
+            "リモコンのボタン", "ホーム", "アカウント", "ボタンなし", "標準のボタン", "リモコンのボタンを押してください", "ボタンを解除",
+            "写真の位置", "上", "中央", "下", "写真全体", "写真を削除", "この写真を削除", "残す", "この写真は削除できません",
+            "この写真を削除しますか？", "削除", "キャンセル", "リモコンのボタンをすべて標準に戻しますか？", "リセット",
+            "使い方", "リストでボタンの役割を選びます。", "次にリモコンのそのボタンを押します。", "完了：これからはどこでもその操作になります。", "矢印、OK、戻る、音量、数字はそのままです。", "ボタンを押してください", "%s に使うリモコンのボタンを押してください", "戻る：キャンセル", "標準に戻す", "すべての写真を削除", "%d 枚の写真をすべて削除しますか？",
         });
         LANGS.put("ko", new String[] {
             "설정", "앱 추가", "네트워크", "오프라인", "소리", "화면",
@@ -234,6 +270,10 @@ final class Strings {
             "휴대폰 카메라로 스캔하거나 같은 Wi-Fi에서 여세요:",
             "내 사진 (USB)", "휴대폰에서 사진 (Wi-Fi)", "사진 선택",
             "Wi-Fi로 (휴대폰 또는 컴퓨터)", "%s에 연결됨", "사진을 여기로 끌어오거나 선택하세요", "완료: TV에 %d / %d", "백업 다운로드", "백업 업로드",
+            "리모컨 버튼", "홈", "계정", "버튼 없음", "기본 버튼", "지금 리모컨 버튼을 누르세요", "버튼 해제",
+            "사진 위치", "위", "가운데", "아래", "사진 전체", "사진 삭제", "이 사진 삭제", "유지", "이 사진은 삭제할 수 없습니다",
+            "이 사진을 삭제할까요?", "삭제", "취소", "리모컨 버튼을 모두 기본값으로 되돌릴까요?", "초기화",
+            "사용 방법", "목록에서 버튼이 할 일을 고르세요.", "그런 다음 리모컨에서 그 버튼을 누르세요.", "완료: 이제 어디서나 그 버튼이 그 일을 합니다.", "화살표, OK, 뒤로, 볼륨, 숫자는 그대로입니다.", "지금 버튼을 누르세요", "%s에 쓸 리모컨 버튼을 누르세요", "뒤로: 취소", "기본값으로 재설정", "모든 사진 삭제", "사진 %d장을 모두 삭제할까요?",
         });
         LANGS.put("nl", new String[] {
             "Instellingen", "App toevoegen", "Netwerk", "Offline", "Geluid", "Beeld",
@@ -258,6 +298,10 @@ final class Strings {
             "Je eigen foto (USB)", "Foto van je telefoon (wifi)", "Kies een foto",
             "Via wifi (telefoon of computer)", "Verbonden met %s", "Sleep foto's hierheen of kies ze",
             "Klaar: %d van %d op de tv", "Back-up downloaden", "Back-up uploaden",
+            "Knoppen afstandsbediening", "Home", "Account", "Geen knop", "Standaardknoppen", "Druk nu op de knop van de afstandsbediening", "Knoppen verwijderen",
+            "Fotopositie", "Boven", "Midden", "Onder", "Hele foto", "Foto's verwijderen", "Foto verwijderen", "Behouden", "Deze foto kan niet worden verwijderd",
+            "Deze foto verwijderen?", "Verwijderen", "Annuleren", "Alle knoppen van de afstandsbediening terugzetten naar standaard?", "Terugzetten",
+            "Zo werkt het", "Kies in de lijst wat een knop moet doen.", "Druk dan op die knop van de afstandsbediening.", "Klaar: vanaf nu doet hij dat overal.", "Pijlen, OK, Terug, volume en cijfers blijven zoals ze zijn.", "Druk nu op de knop", "Druk op de knop van de afstandsbediening voor: %s", "Terug: annuleren", "Terugzetten naar standaard", "Alle foto's verwijderen", "Alle %d foto's verwijderen?",
         });
         LANGS.put("pl", new String[] {
             "Ustawienia", "Dodaj aplikację", "Sieć", "Offline", "Dźwięk", "Obraz",
@@ -282,6 +326,10 @@ final class Strings {
             "Twoje zdjęcie (USB)", "Zdjęcie z telefonu (Wi-Fi)", "Wybierz zdjęcie",
             "Przez Wi-Fi (telefon lub komputer)", "Połączono z %s", "Przeciągnij tu zdjęcia lub je wybierz",
             "Gotowe: %d z %d na telewizorze", "Pobierz kopię", "Wyślij kopię",
+            "Przyciski pilota", "Ekran główny", "Konto", "Brak przycisku", "Przyciski domyślne", "Naciśnij teraz przycisk na pilocie", "Usuń przyciski",
+            "Położenie zdjęcia", "Góra", "Środek", "Dół", "Całe zdjęcie", "Usuń zdjęcia", "Usuń zdjęcie", "Zachowaj", "Nie można usunąć tego zdjęcia",
+            "Usunąć to zdjęcie?", "Usuń", "Anuluj", "Przywrócić domyślne ustawienia wszystkich przycisków pilota?", "Przywróć",
+            "Jak to działa", "Wybierz na liście, co ma robić przycisk.", "Potem naciśnij ten przycisk na pilocie.", "Gotowe: od teraz robi to wszędzie.", "Strzałki, OK, Wstecz, głośność i cyfry zostają bez zmian.", "Naciśnij teraz przycisk", "Naciśnij przycisk na pilocie dla: %s", "Wstecz: anuluj", "Przywróć domyślne", "Usuń wszystkie zdjęcia", "Usunąć wszystkie zdjęcia (%d)?",
         });
         LANGS.put("pt", new String[] { // Brazilian Portuguese
             "Configurações", "Adicionar app", "Rede", "Sem conexão", "Som", "Imagem",
@@ -306,6 +354,10 @@ final class Strings {
             "Sua foto (USB)", "Foto do celular (Wi-Fi)", "Escolha uma foto",
             "Por Wi-Fi (celular ou computador)", "Conectado a %s", "Arraste fotos aqui ou escolha",
             "Pronto: %d de %d na TV", "Baixar backup", "Enviar backup",
+            "Botões do controle", "Início", "Conta", "Nenhum botão", "Botões padrão", "Aperte agora o botão do controle", "Remover os botões",
+            "Posição da foto", "Topo", "Centro", "Base", "Foto inteira", "Excluir fotos", "Excluir foto", "Manter", "Não foi possível excluir esta foto",
+            "Excluir esta foto?", "Excluir", "Cancelar", "Voltar todos os botões do controle ao padrão?", "Redefinir",
+            "Como funciona", "Na lista, escolha o que um botão deve fazer.", "Depois aperte esse botão no controle.", "Pronto: a partir de agora ele faz isso em qualquer lugar.", "Setas, OK, Voltar, volume e números continuam como estão.", "Aperte o botão agora", "Aperte o botão do controle para: %s", "Voltar: cancelar", "Voltar ao padrão", "Excluir todas as fotos", "Excluir todas as %d fotos?",
         });
         LANGS.put("ru", new String[] {
             "Настройки", "Добавить", "Сеть", "Нет сети", "Звук", "Изображение",
@@ -330,6 +382,10 @@ final class Strings {
             "Своё фото (USB)", "Фото с телефона (Wi-Fi)", "Выберите фото",
             "Через Wi-Fi (телефон или компьютер)", "Подключено к %s", "Перетащите фото сюда или выберите",
             "Готово: %d из %d на ТВ", "Скачать копию", "Загрузить копию",
+            "Кнопки пульта", "Главный экран", "Аккаунт", "Нет кнопки", "Стандартные кнопки", "Нажмите кнопку на пульте", "Убрать кнопки",
+            "Положение фото", "Сверху", "По центру", "Снизу", "Фото целиком", "Удалить фото", "Удалить это фото", "Оставить", "Не удаётся удалить это фото",
+            "Удалить это фото?", "Удалить", "Отмена", "Вернуть все кнопки пульта к стандартным?", "Сбросить",
+            "Как это работает", "Выберите в списке, что должна делать кнопка.", "Затем нажмите эту кнопку на пульте.", "Готово: теперь она делает это везде.", "Стрелки, OK, Назад, громкость и цифры остаются как есть.", "Нажмите кнопку", "Нажмите кнопку на пульте для: %s", "Назад: отмена", "Сбросить к стандартным", "Удалить все фото", "Удалить все фото (%d)?",
         });
         LANGS.put("tr", new String[] {
             "Ayarlar", "Uygulama ekle", "Ağ", "Çevrimdışı", "Ses", "Görüntü",
@@ -353,6 +409,10 @@ final class Strings {
             "Kendi fotoğrafınız (USB)", "Telefondan fotoğraf (Wi-Fi)", "Fotoğraf seçin",
             "Wi-Fi ile (telefon veya bilgisayar)", "%s cihazına bağlı", "Fotoğrafları buraya sürükleyin veya seçin",
             "Bitti: TV'de %d / %d", "Yedeği indir", "Yedek yükle",
+            "Kumanda tuşları", "Ana ekran", "Hesap", "Tuş yok", "Varsayılan tuşlar", "Şimdi kumandadaki tuşa basın", "Tuşlarını kaldır",
+            "Fotoğraf konumu", "Üst", "Orta", "Alt", "Fotoğrafın tamamı", "Fotoğrafları sil", "Fotoğrafı sil", "Sakla", "Bu fotoğraf silinemiyor",
+            "Bu fotoğraf silinsin mi?", "Sil", "İptal", "Tüm kumanda tuşları varsayılana döndürülsün mü?", "Sıfırla",
+            "Nasıl yapılır", "Listeden bir tuşun ne yapacağını seçin.", "Sonra kumandada o tuşa basın.", "Tamam: artık her yerde bunu yapar.", "Oklar, OK, Geri, ses ve rakamlar olduğu gibi kalır.", "Şimdi tuşa basın", "Kumandada şunun için tuşa basın: %s", "Geri: iptal", "Varsayılana sıfırla", "Tüm fotoğrafları sil", "%d fotoğrafın tümü silinsin mi?",
         });
         LANGS.put("uk", new String[] {
             "Налаштування", "Додати додаток", "Мережа", "Офлайн", "Звук", "Зображення",
@@ -376,6 +436,10 @@ final class Strings {
             "Власне фото (USB)", "Фото з телефона (Wi-Fi)", "Виберіть фото",
             "Через Wi-Fi (телефон або комп'ютер)", "Підключено до %s", "Перетягніть фото сюди або виберіть",
             "Готово: %d з %d на ТВ", "Завантажити копію", "Надіслати копію",
+            "Кнопки пульта", "Головний екран", "Обліковий запис", "Немає кнопки", "Стандартні кнопки", "Натисніть кнопку на пульті", "Прибрати кнопки",
+            "Положення фото", "Згори", "По центру", "Знизу", "Фото повністю", "Видалити фото", "Видалити це фото", "Залишити", "Не вдається видалити це фото",
+            "Видалити це фото?", "Видалити", "Скасувати", "Повернути всі кнопки пульта до стандартних?", "Скинути",
+            "Як це працює", "Виберіть у списку, що має робити кнопка.", "Потім натисніть цю кнопку на пульті.", "Готово: тепер вона робить це всюди.", "Стрілки, OK, Назад, гучність і цифри лишаються як є.", "Натисніть кнопку", "Натисніть кнопку на пульті для: %s", "Назад: скасувати", "Скинути до стандартних", "Видалити всі фото", "Видалити всі фото (%d)?",
         });
         LANGS.put("zh", new String[] { // Simplified Chinese
             "设置", "添加应用", "网络", "未联网", "声音", "图像",
@@ -392,6 +456,10 @@ final class Strings {
             "用手机相机扫码，或在同一 Wi-Fi 下打开：",
             "你的照片 (USB)", "手机照片 (Wi-Fi)", "选择照片",
             "通过 Wi-Fi（手机或电脑）", "已连接到 %s", "将照片拖到这里或选择照片", "完成：%d / %d 张已到电视", "下载备份", "上传备份",
+            "遥控器按钮", "主屏幕", "账号", "无按钮", "默认按钮", "现在按遥控器上的按钮", "移除按钮",
+            "照片位置", "顶部", "居中", "底部", "完整照片", "删除照片", "删除这张照片", "保留", "无法删除这张照片",
+            "删除这张照片？", "删除", "取消", "将所有遥控器按钮恢复为默认？", "重置",
+            "使用方法", "在列表中选择按钮要做的事。", "然后按遥控器上的那个按钮。", "完成：从现在起它在任何地方都这样做。", "方向键、OK、返回、音量和数字键保持不变。", "现在按下按钮", "按遥控器上的按钮用于：%s", "返回：取消", "恢复默认", "删除所有照片", "删除全部 %d 张照片？",
         });
         String[] hant = { // Traditional Chinese
             "設定", "新增應用程式", "網路", "離線", "音效", "影像",
@@ -408,6 +476,10 @@ final class Strings {
             "用手機相機掃描，或在同一 Wi-Fi 下開啟：",
             "你的相片 (USB)", "手機相片 (Wi-Fi)", "選擇相片",
             "透過 Wi-Fi（手機或電腦）", "已連線到 %s", "將相片拖到這裡或選擇相片", "完成：%d / %d 張已到電視", "下載備份", "上傳備份",
+            "遙控器按鈕", "主畫面", "帳戶", "無按鈕", "預設按鈕", "現在按遙控器上的按鈕", "移除按鈕",
+            "相片位置", "頂部", "置中", "底部", "完整相片", "刪除相片", "刪除這張相片", "保留", "無法刪除這張相片",
+            "刪除這張相片？", "刪除", "取消", "將所有遙控器按鈕恢復為預設？", "重設",
+            "使用方式", "在清單中選擇按鈕要做的事。", "然後按遙控器上的那個按鈕。", "完成：從現在起它在任何地方都這樣做。", "方向鍵、OK、返回、音量和數字鍵維持不變。", "現在按下按鈕", "按遙控器上的按鈕用於：%s", "返回：取消", "恢復預設", "刪除所有相片", "刪除全部 %d 張相片？",
         };
         LANGS.put("zh-TW", hant);
         LANGS.put("zh-HK", hant);

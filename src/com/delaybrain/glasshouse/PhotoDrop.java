@@ -179,19 +179,6 @@ final class PhotoDrop {
         return u;
     }
 
-    // Takes out every photo sent for the screensaver (only this app's own can be); returns how many.
-    static int deleteReceived(Context c) {
-        ContentResolver cr = c.getContentResolver();
-        Uri all = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-        int n = 0;
-        try (Cursor cur = cr.query(all, new String[] {MediaStore.MediaColumns._ID},
-                MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?", new String[] {SCREENSAVER + "%"}, null)) {
-            while (cur != null && cur.moveToNext())
-                n += cr.delete(android.content.ContentUris.withAppendedId(all, cur.getLong(0)), null, null);
-        } catch (Exception ignored) {}
-        return n;
-    }
-
     // ---- The page, in the TV's language and the home screen's look: the wallpaper's colours behind a
     // card of glass, white buttons with dark text. One file, no outside requests (it works offline).
 

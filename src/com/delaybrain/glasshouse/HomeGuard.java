@@ -98,45 +98,67 @@ public class HomeGuard extends AccessibilityService {
         return (int) Math.max(1, (offAt - System.currentTimeMillis() + 59_999) / 60_000);
     }
 
-    // Home, Apps, Settings, Guide and the person button, before Android hands them on. On Google TV
-    // these go to Google TV's home screen (Settings opens its side panel), so with it off they'd do
-    // nothing. Home and Apps open this home screen (Apps with its app list), Settings opens Control
-    // Center, the person button the TV's account page, Guide Live TV (see below). Everything else
-    // passes through untouched, the input button too: the TV's own input picker handles it.
+    // The remote's buttons, before Android hands them on. On Google TV, Home, Apps and Settings go to
+    // Google TV's home screen (Settings opens its side panel), so with it off they'd do nothing. Which
+    // button does what is in RemoteKeys (standard: Home and Apps open this home screen, Apps with its
+    // app list, the gear Control Center, the person button the TV's account page, Guide Live TV, see
+    // below). Every other button passes through untouched, the input button too: the TV's own input
+    // picker handles it.
     @Override
     protected boolean onKeyEvent(KeyEvent e) {
-        int code = e.getKeyCode();
-        if (code == KeyEvent.KEYCODE_GUIDE) return guideButton(e);
-        // The gear button sends NOTIFICATION on some remotes (Peaq), SETTINGS on others.
-        boolean settings = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_NOTIFICATION;
-        boolean profile = code == KeyEvent.KEYCODE_PROFILE_SWITCH;
-        if (code != KeyEvent.KEYCODE_HOME && code != KeyEvent.KEYCODE_ALL_APPS && !settings && !profile) return false;
+        if (learning != null) return learn(e);
+        String action = RemoteKeys.action(this, e.getKeyCode());
+        if (action == null) return false;
+        if (RemoteKeys.OFF.equals(action)) return true; // swallowed: neither we nor the TV do anything
+        if (RemoteKeys.LIVE.equals(action)) return guideButton(e);
+        boolean home = RemoteKeys.HOME.equals(action);
         // The screensaver ends on any button, but these never reach it: end it here, then do as usual.
         if (e.getAction() == KeyEvent.ACTION_DOWN && Screensaver.active != null) Screensaver.active.finish();
         // Home held down opens the recently used apps instead; its release then does nothing more.
-        if (code == KeyEvent.KEYCODE_HOME && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
+        if (home && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
             homeHeld = false;
             handler.removeCallbacks(holdHome);
             handler.postDelayed(holdHome, ViewConfiguration.getLongPressTimeout());
         }
-        if (code == KeyEvent.KEYCODE_HOME && e.getAction() == KeyEvent.ACTION_UP) {
+        if (home && e.getAction() == KeyEvent.ACTION_UP) {
             handler.removeCallbacks(holdHome);
             if (homeHeld) return true;
         }
         if (e.getAction() != KeyEvent.ACTION_UP || e.isCanceled()) return true;
         handler.removeCallbacks(bringHome);
         Intent i;
-        if (settings) {
+        if (RemoteKeys.CONTROL.equals(action)) {
             i = new Intent(this, ControlCenter.class);
-        } else if (profile) {
-            // "Account & sign-in", where Google TV's profiles live.
-            i = new Intent(Settings.ACTION_SYNC_SETTINGS);
-            if (i.resolveActivity(getPackageManager()) == null) i = new Intent(Settings.ACTION_SETTINGS);
+        } else if (RemoteKeys.ACCOUNT.equals(action)) {
+            i = accountSettings(this);
         } else {
             i = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-            if (code == KeyEvent.KEYCODE_ALL_APPS) i.putExtra("show", "apps");
+            if (RemoteKeys.APPS.equals(action)) i.putExtra("show", "apps");
         }
         try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {}
+        return true;
+    }
+
+    // "Account & sign-in", where Google TV's profiles live, else the TV's settings.
+    static Intent accountSettings(Context c) {
+        Intent i = new Intent(Settings.ACTION_SYNC_SETTINGS);
+        return i.resolveActivity(c.getPackageManager()) != null ? i : new Intent(Settings.ACTION_SETTINGS);
+    }
+
+    // Settings > Remote buttons waits for a button: the next one released goes to it instead of doing
+    // anything, whatever it does now. Buttons that can't be chosen (arrows, OK, Back) work as usual, so
+    // Back still ends the wait.
+    interface Learner { void got(int code); }
+    static Learner learning;
+
+    private boolean learn(KeyEvent e) {
+        final int code = e.getKeyCode();
+        if (!RemoteKeys.choosable(code)) return false;
+        if (e.getAction() == KeyEvent.ACTION_UP && e.getRepeatCount() == 0) {
+            final Learner l = learning;
+            learning = null;
+            handler.post(() -> l.got(code));
+        }
         return true;
     }
 
@@ -189,6 +211,10 @@ public class HomeGuard extends AccessibilityService {
                 || e.getPackageName() == null || e.getClassName() == null) return;
         String pkg = e.getPackageName().toString();
         if (!pkg.equals("com.android.systemui")) front = pkg; // System UI is only a toast or the volume bar
+        if (VOICE_PAIRING.equals(pkg + "/" + e.getClassName()) && !voiceSearchOn()) {
+            performGlobalAction(GLOBAL_ACTION_BACK);
+            return;
+        }
         // Kids lock: a locked app that wasn't opened with the PIN gets the PIN pad over it.
         if (!pkg.equals(getPackageName()) && KidLock.isLocked(this, pkg) && !pkg.equals(KidLock.unlocked)) {
             start(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -207,6 +233,20 @@ public class HomeGuard extends AccessibilityService {
             // Another app came up: the Home page was only on the way to it. System UI is only a toast
             // or the volume bar, so it doesn't count.
             handler.removeCallbacks(bringHome);
+        }
+    }
+
+    // The voice button on MediaTek TVs (Peaq, Changhong): with the remote not paired over Bluetooth it
+    // opens this page, to pair it for voice. The button is the TV's own (a "global key"), so it never
+    // gets to HomeGuard and can't be given a job or turned off under Remote buttons. With Google's voice
+    // search turned off there's nothing to pair it for: the page is closed again as soon as it shows.
+    private static final String VOICE_PAIRING = "com.mediatek.wwtv.setupwizard/com.mediatek.wwtv.setupwizard.BluetoothActivityVoice";
+
+    private boolean voiceSearchOn() {
+        try {
+            return getPackageManager().getApplicationInfo("com.google.android.katniss", 0).enabled;
+        } catch (Exception notThere) {
+            return false;
         }
     }
 

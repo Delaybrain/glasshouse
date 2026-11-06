@@ -2,6 +2,7 @@ package com.delaybrain.glasshouse;
 
 import android.content.Context;
 import android.media.tv.TvContract;
+import android.media.tv.TvInputManager;
 import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.os.Handler;
@@ -47,7 +48,12 @@ final class InputPreview {
                 listener.onSignal(inputId, true);
             }
             @Override public void onVideoUnavailable(String inputId, int reason) {
-                if (inputId.equals(tuned)) show(false);
+                if (!inputId.equals(tuned)) return;
+                // A picture that was there went away: the device was turned off or unplugged.
+                boolean lost = showing && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING
+                        && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING;
+                show(false);
+                if (lost) listener.onSignal(inputId, false);
             }
             @Override public void onConnectionFailed(String inputId) {
                 android.util.Log.w("InputPreview", "can't connect to " + inputId);
@@ -75,6 +81,11 @@ final class InputPreview {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    // The input whose picture is showing behind the page now, or null.
+    String showingInput() {
+        return showing ? tuned : null;
     }
 
     View view() {

@@ -6,12 +6,12 @@ import android.content.SharedPreferences;
 import org.json.JSONObject;
 
 // What a backup holds: the choices made on the TV (apps and their order, looks, status bar, screensaver,
-// kids lock). Not the timers or what was last open. As JSON, for the file on the TV (backup.sh, the
+// kids lock, remote buttons). Not the timers or what was last open. As JSON, for the file on the TV (backup.sh, the
 // Settings menu) and for a phone or computer over Wi-Fi (PhotoDrop).
 final class Backup {
     private static final String PREFS = "config";
     private static final String[] KEYS = {"apps", "quick", "wallpaper", "tiles", "tilesBrand", "status",
-            "saver", "pin", "locked"};
+            "saver", "pin", "locked", "keys", "wallpaperFit", "saverFit"};
 
     private Backup() {}
 

@@ -15,7 +15,7 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 > [!IMPORTANT]
 > **So far tested on exactly one TV:** a PEAQ 65GQU-5024C (built by Changhong, MediaTek chip, Google TV on Android 14, 1.9 GB RAM). The install, undo and cleanup scripts come from tv-detox, which was used on many TVs, but everything Glasshouse added (the home screen's looks, Control Center, the remote buttons, kids lock, photos over Wi-Fi) has only run there. Other TVs may differ, especially their remotes. Please [open an issue](https://github.com/Delaybrain/glasshouse/issues) with your TV's model either way.
 >
-> **The ready-made APK in [Releases](https://github.com/Delaybrain/glasshouse/releases) is exactly what runs on that PEAQ.** It may well run on other Android TVs, but nobody has checked. **On any other TV, build it from this code instead**, best by letting Claude Code or another coding agent do it with the [setup prompt](#first-setup-with-an-ai-assistant): it builds Glasshouse on your computer, checks what your remote's buttons send and adapts the code to your TV before installing it.
+> **The ready-made APK in [Releases](https://github.com/Delaybrain/glasshouse/releases) is exactly what runs on that PEAQ.** It may well run on other Android TVs, but nobody has checked. **On any other TV, build it from this code instead**, best by letting Claude Code or another coding agent do it with the [setup prompt](#first-setup-with-an-ai-assistant): it builds Glasshouse on your computer, checks it fits your TV and installs it. If a remote button does nothing, set it on the TV under Settings → **Remote buttons**.
 
 > [!WARNING]
 > **Use at your own risk.** Changing a TV's home screen and turning off system apps over adb always carries some risk of leaving the TV stuck at the logo, restarting over and over, or needing a factory reset, which erases everything on it. It may also affect your warranty. Before you start, find out how to factory reset your TV (often with buttons on the TV itself) and note your logins. This is a free hobby project with **no warranty and no liability** for any damage or data loss (see [Disclaimer](#disclaimer)).
@@ -27,11 +27,12 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 - **Glass panels.** Menus, panels and Control Center float on a blurred copy of the page, with a tint that adapts so every panel is equally bright, and a rim that catches the light. All drawn once, never per frame.
 - **Seven tile looks.** Original, dark, light, glass, black & white, spotlight, or light by day and dark at night. Banners on white or black get their background turned round, brand colours optionally too.
 - **Status bar you choose.** Clock, network (Wi-Fi bars or a cable), date, CPU speed, RAM, download speed, off timer.
-- **Remote buttons that work.** Home, the settings gear, the apps button and the TV button are caught before Google TV takes them (an accessibility service, *HomeGuard*). Hold Home for the apps you used last.
+- **Remote buttons that work.** Home, the settings gear, the apps button and the TV button are caught before Google TV takes them (an accessibility service, *HomeGuard*). Hold Home for the apps you used last. Another remote? Set which button does what on the TV, under Settings → Remote buttons.
 - **Control Center** on the gear button: Bluetooth, network, picture, sound, an off timer, when the screensaver and sleep start.
 - **Kids lock.** A PIN for the apps you pick. It also asks when an app is opened by voice or a link.
 - **Photos from your phone.** Scan a QR code on the TV, pick photos on your phone (or drop them in on a computer) for the screensaver or the wallpaper. A tiny web server runs on the TV only while that card is open.
 - **Screensaver** with a big clock over your apps' colours, or your photos.
+- **Photos that fit.** A photo of another shape (4:3, upright) is cut at the top, middle or bottom, or shown whole on a soft copy of itself, picked under *Photo position* for the wallpaper and the screensaver. *Delete photos* lists them with small pictures; each one, or all of them, is deleted after one question.
 - **Back up and restore** your setup: from the menu, over Wi-Fi from a phone, or with `backup.sh` / `restore.sh`.
 - **18 languages**, following the TV's.
 
@@ -91,13 +92,13 @@ My TV is a <brand and model>.
    If you're not sure, leave it on.
 6. Unless my TV is a PEAQ 65GQU (the only one tested), build Glasshouse
    from the code instead of using the release APK: build.sh, or
-   build.ps1 after setup-tools.ps1 on Windows. Before that, find out
-   what my remote's buttons send (adb shell getevent -l, README:
-   "Remote buttons") and adapt onKeyEvent in HomeGuard.java if they
-   differ. Show me what you change.
+   build.ps1 after setup-tools.ps1 on Windows. Show me anything you
+   change in the code.
 7. Install Glasshouse with install.sh (it uses the APK you built) and
    these apps: <your apps>. Then press Home and check it comes up.
-   Test the remote's Home, settings and apps buttons with me.
+   Test the remote's Home, settings and apps buttons with me. If one
+   does nothing, walk me through Settings > Remote buttons on the TV
+   (README: "Remote buttons"); don't change the code for that.
 8. Turn off animations. Ask me if the TV is OLED; if it is, keep the
    screensaver on.
 9. Wait 30 seconds, restart the TV once, and check it starts normally
@@ -133,6 +134,7 @@ Each one is optional: without it, only that feature stays off.
 | `pm grant BLUETOOTH_CONNECT` | Control Center's Bluetooth row |
 | HomeGuard (accessibility) | the remote's Home, gear, apps and TV buttons |
 | `READ_MEDIA_IMAGES` | photos from a USB stick (asked on the TV when you pick that) |
+| `MANAGE_MEDIA` (appops, by `install.sh`) | deleting a photo asks once, in Glasshouse's look; without it Android asks a second time |
 
 ### Undo
 
@@ -148,7 +150,7 @@ On Google TV the Home, settings and apps buttons go to Google TV's own screens, 
 - `install.sh` turns it on. By hand: `sh homeguard.sh <TV_IP> on` (and `off`), or TV Settings → Accessibility → *Glasshouse: remote buttons*.
 - Android turns accessibility services off when their app is updated or force-stopped. Glasshouse turns HomeGuard back on by itself the next time it comes up (that's what `WRITE_SECURE_SETTINGS` is for). `homeguard.sh off` tells it not to.
 
-What the buttons do, as on the tested PEAQ remote:
+What the buttons do as standard, as on the tested PEAQ remote:
 
 | Button | Key it sends | Glasshouse |
 |---|---|---|
@@ -160,7 +162,15 @@ What the buttons do, as on the tested PEAQ remote:
 | Input (TV with an arrow) | `TV_INPUT` | left alone: the TV's own input picker |
 | Everything else | | left alone |
 
-**A button that does nothing on your remote?** Find out what it sends: run `adb shell getevent -l`, press the button, and look for the `KEY_...` line (Android's name for it can differ a little). The mapping lives in `onKeyEvent` in `src/com/delaybrain/glasshouse/HomeGuard.java`. Open an issue with your remote's model and the key, and it can be added.
+**Another remote? Set the buttons on the TV.** Settings → **Remote buttons** lists each job (Home, All apps, Control Center, Live TV, Account, and *Off* for a button that should do nothing at all) with the buttons that do it now. Pick one and press the button you want on the remote: from then on it does that job, and nothing it did before. A job can have more than one button. *Remove its buttons* leaves a job without one, and those buttons go back to the TV. *Reset to standard* puts everything back as in the table, after asking.
+
+- Until you change something there, the standard buttons stay exactly as they were, so an update never changes a remote that already works.
+- The arrows, OK, Back, volume, power and the digits can't be given a job: they're needed to use the TV and to type the kids lock PIN.
+- It needs HomeGuard on to catch Home and the buttons Google TV takes. Without it, the buttons still work on the home screen itself.
+- Your choice is in backups too.
+- **The voice button on MediaTek TVs** (Peaq, Changhong) is a button the TV keeps for itself: it never reaches Glasshouse, so it can't be set here. With Google's voice search turned off (`com.google.android.katniss`) it opens a page to pair the remote for voice; HomeGuard closes that page again as soon as it shows.
+
+A button that doesn't show up there at all, or that your TV keeps for itself? Run `adb shell getevent -l`, press it, and [open an issue](https://github.com/Delaybrain/glasshouse/issues) with your remote's model and the `KEY_...` line.
 
 ## Replacing Google TV's home screen
 

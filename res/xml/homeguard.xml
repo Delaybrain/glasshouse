@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- HomeGuard sees which window comes to the front, and the remote's Home, Apps, Settings and Guide
+<!-- HomeGuard sees which window comes to the front, and the remote buttons it has a job for (RemoteKeys)
      buttons before Android hands them to Google TV's home screen. It reads no screen content. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"

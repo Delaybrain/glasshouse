@@ -33,6 +33,8 @@
         <package android:name="com.mediatek.wwtv.tvcenter" />
         <package android:name="com.android.tv" />
         <package android:name="com.droidlogic.android.tv" />
+        <!-- Google's voice search: with it off, HomeGuard closes the voice remote pairing page. -->
+        <package android:name="com.google.android.katniss" />
     </queries>
     <!-- Android 12+: the Bluetooth shortcut and Control Center open the TV's pairing screen, which needs it. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -48,6 +50,9 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Sending photos from a phone in the same Wi-Fi (PhotoDrop's little web server, only while its card is up). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Settings > Wallpaper/Screensaver > Delete photos: with it (install.sh allows it over adb), a photo
+         is deleted after Glasshouse's own question, without Android asking a second time. -->
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" />
     <!-- Photos for the screensaver (USB stick or the TV), asked for when that look is picked. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
