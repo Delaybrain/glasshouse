@@ -125,8 +125,8 @@ final class SaverView extends FrameLayout {
         loader.execute(() -> {
             android.graphics.Bitmap b;
             try {
-                b = getContext().getContentResolver().loadThumbnail(uri, new android.util.Size(w, h), null);
-            } catch (Exception e) {
+                b = decode(uri, w, h);
+            } catch (Exception | OutOfMemoryError e) {
                 return; // gone, or not a picture after all: the next slide tries the next one
             }
             handler.post(() -> {
@@ -142,6 +142,19 @@ final class SaverView extends FrameLayout {
                         .withEndAction(() -> back.setImageDrawable(null)).start(); // only two in memory
                 driftPhoto(front);
             });
+        });
+    }
+
+    // The photo itself (not Android's small cached thumbnail, which looked blurry on the TV), scaled down
+    // while decoding to just cover the screen: sharp, and no more memory than a screenful. ImageDecoder
+    // also turns it the right way up and reads HEIC from iPhones.
+    private android.graphics.Bitmap decode(android.net.Uri uri, final int w, final int h) throws java.io.IOException {
+        android.graphics.ImageDecoder.Source src =
+                android.graphics.ImageDecoder.createSource(getContext().getContentResolver(), uri);
+        return android.graphics.ImageDecoder.decodeBitmap(src, (dec, info, s) -> {
+            int iw = info.getSize().getWidth(), ih = info.getSize().getHeight();
+            float scale = Math.max((float) w / iw, (float) h / ih);
+            if (scale < 1f) dec.setTargetSize(Math.max(1, Math.round(iw * scale)), Math.max(1, Math.round(ih * scale)));
         });
     }
 
