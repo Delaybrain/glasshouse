@@ -13,6 +13,12 @@ final class Style {
     static final int PANEL = 0xFF16181F; // solid: anything under it (the clock) would show through
     static final int DIM = 0x99000000; // behind a side panel
 
+    // Liquid glass (menus, panels, Control Center, the app switcher, the dock): a tint over a blurred
+    // copy of the page, a gloss on the top half, and a rim lit from the top left that fades round to
+    // the bottom right. Over other apps there's no copy to blur, so the tint is stronger (SOLO).
+    static final int LIQUID_TINT = 0x8C14161C, LIQUID_SOLO = 0xEE14161C, LIQUID_GLOSS = 0x1AFFFFFF;
+    static final int LIQUID_RIM_HI = 0x8CFFFFFF, LIQUID_RIM_LO = 0x12FFFFFF, LIQUID_RIM_END = 0x3DFFFFFF;
+
     // Text on the wallpaper and panels, and focus: white, with dark text and icons on it.
     static final int INK = 0xFFFFFFFF, INK_2 = 0xB8FFFFFF, INK_3 = 0x80FFFFFF;
     static final int FOCUS = 0xFFFFFFFF, FOCUS_INK = 0xFF111318;

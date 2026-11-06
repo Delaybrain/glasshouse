@@ -182,6 +182,12 @@ public class HomeGuard extends AccessibilityService {
                 || e.getPackageName() == null || e.getClassName() == null) return;
         String pkg = e.getPackageName().toString();
         if (!pkg.equals("com.android.systemui")) front = pkg; // System UI is only a toast or the volume bar
+        // Kids lock: a locked app that wasn't opened with the PIN gets the PIN pad over it.
+        if (!pkg.equals(getPackageName()) && KidLock.isLocked(this, pkg) && !pkg.equals(KidLock.unlocked)) {
+            start(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                    .putExtra("show", "pin").putExtra("pkg", pkg));
+            return;
+        }
         if (pkg.equals(getPackageName())) {
             handler.removeCallbacks(bringHome);
             return;

@@ -109,6 +109,7 @@ public class MainActivity extends Activity {
     private static final int CLOCK_BOTTOM = 99; // where the top row ends, for placing the art below it
     private static final int ICON_TOP = 40, ICON_BUTTON = 72; // the top row: its top, and its height
     private static final int STATUS_ICON = 30; // the network icon, as tall as the status text
+    private static final int RATE_W = 200; // room for the widest download speed ("↓ 99,9 MB/s")
     private static final float ICON_DIM = 0xB8 / (float) 0xEB; // brings LineIcon's white down to Style.INK_2
     private static final String STATUS_DOT = "   \u00b7   "; // between the items of the top rows
     // The art sits halfway between the clock and the dock; the name is level with the art's middle.
@@ -119,7 +120,8 @@ public class MainActivity extends Activity {
     private static final float FOCUS_SCALE = Style.SCALE_TILE;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
-    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Status bar", "Brightness", "TV settings"};
+    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Status bar", "Screensaver", "Kids lock",
+            "Back up & restore", "Brightness", "TV settings"};
     // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
     // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
     private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight",
@@ -314,11 +316,7 @@ public class MainActivity extends Activity {
         root.addView(dockShade, at(0, 0, 0, 0)); // placed by buildTiles, with the dock
 
         dock = new View(this);
-        GradientDrawable glass = new GradientDrawable();
-        glass.setCornerRadius(px(DOCK_RADIUS));
-        glass.setColor(Style.GLASS);
-        glass.setStroke(Math.max(1, px(2)), Style.GLASS_STROKE);
-        dock.setBackground(glass);
+        dock.setBackground(new LiquidGlass(px(DOCK_RADIUS), Math.max(1, px(Style.STROKE)), Style.GLASS, null, null));
         root.addView(dock, at(0, 0, 0, 0)); // placed by buildTiles
 
         // The apps: one row that scrolls sideways inside the dock when there are more than fit, so the
@@ -347,7 +345,8 @@ public class MainActivity extends Activity {
         // the top right (download speed · network · clock), same size, colour and dots between. Bluetooth,
         // sound and picture live in Control Center.
         statusLine = statusText();
-        root.addView(statusLine, at(px(MARGIN), px(ICON_TOP), -2, px(ICON_BUTTON)));
+        // Fixed sizes: a new number every two seconds then only redraws its text, no layout of the page.
+        root.addView(statusLine, at(px(MARGIN), px(ICON_TOP), px(1920 / 2 - MARGIN), px(ICON_BUTTON)));
         topRight = new LinearLayout(this);
         topRight.setOrientation(LinearLayout.HORIZONTAL);
         topRight.setGravity(Gravity.CENTER_VERTICAL);
@@ -360,7 +359,9 @@ public class MainActivity extends Activity {
         clockView = clock("h:mm", "H:mm", px(Style.TITLE), Color.WHITE, semibold); // the clock stays big and white
         clockView.setFontFeatureSettings("tnum");
         clockView.setIncludeFontPadding(false);
-        for (View v : new View[] {rateText, rateDot, clockDot, clockView}) topRight.addView(v); // network goes in at 2
+        rateText.setGravity(Gravity.CENTER_VERTICAL | Gravity.END); // right-aligned in its fixed width
+        topRight.addView(rateText, new LinearLayout.LayoutParams(px(RATE_W), px(ICON_BUTTON)));
+        for (View v : new View[] {rateDot, clockDot, clockView}) topRight.addView(v); // network goes in at 2
         FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-2, px(ICON_BUTTON), Gravity.TOP | Gravity.END);
         tp.topMargin = px(ICON_TOP);
         tp.rightMargin = px(MARGIN);
@@ -474,14 +475,26 @@ public class MainActivity extends Activity {
     // HomeGuard opens the app list for the remote's Apps button with --es show apps. Taken out of the
     // intent once shown, so the list doesn't come back when Android restarts the home screen.
     // Home held down (HomeGuard) asks for the recently used apps the same way, with --es show recents.
+    // HomeGuard also asks for the PIN pad (--es show pin --es pkg ...) when a locked app came up some
+    // other way, and backup.sh / restore.sh send --es backup save|restore.
     private void showRequested(Intent intent) {
-        String show = intent == null ? null : intent.getStringExtra("show");
-        if (!"apps".equals(show) && !"recents".equals(show)) return;
+        if (intent == null) return;
+        String backup = intent.getStringExtra("backup");
+        intent.removeExtra("backup");
+        if ("save".equals(backup)) toast(backUp() ? "Backed up" : "No backup found");
+        if ("restore".equals(backup)) restoreBackup();
+        String show = intent.getStringExtra("show");
+        final String pkg = intent.getStringExtra("pkg");
         intent.removeExtra("show");
-        root.post("apps".equals(show) ? this::showAllApps : this::showRecents);
+        if ("apps".equals(show)) root.post(this::showAllApps);
+        if ("recents".equals(show)) root.post(this::showRecents);
+        if ("control".equals(show)) startActivity(new Intent(this, ControlCenter.class)); // as the gear button does
+        if ("pin".equals(show) && pkg != null) root.post(() -> askFirst(pkg, pkg));
     }
 
-    // The apps used last, newest first (the one just left on top), from usage stats; OK opens one.
+    // The app switcher (Home held): the apps used last, newest first, as cards on a strip of liquid glass
+    // in the middle of the screen, like the home screen's row (same banners in the same look). The one
+    // just left is first and has the focus; its name shows under the strip. OK opens one, Back closes.
     private void showRecents() {
         refreshRecents();
         final List<String> pkgs = new ArrayList<>(lastUsed.keySet());
@@ -489,14 +502,87 @@ public class MainActivity extends Activity {
         while (pkgs.size() > RECENTS) pkgs.remove(pkgs.size() - 1);
         if (pkgs.isEmpty()) return;
         final PackageManager pm = getPackageManager();
-        List<String> labels = new ArrayList<>();
-        for (String pkg : pkgs) {
+        int n = pkgs.size(), w = px(TILE_W), h = px(TILE_H), gap = px(GAP), pad = px(DOCK_PAD);
+        int headH = px(64), nameH = px(56);
+        int cw = n * w + (n - 1) * gap + 2 * pad, ch = pad + headH + h + nameH + pad;
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int cx = (sw - cw) / 2, cy = (sh - ch) / 2;
+
+        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        FrameLayout card = new FrameLayout(this);
+        card.setClipChildren(false);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(Strings.t("Recently used"));
+        card.addView(head, at(pad, pad, -2, headH));
+        final TextView name = text(px(Style.LABEL), Style.INK, semibold);
+        name.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.addView(name, at(0, pad + headH + h + px(14), cw, -2));
+
+        View first = null;
+        for (int i = 0; i < n; i++) {
+            final String pkg = pkgs.get(i);
             String label = pkg;
             try { label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString(); } catch (Exception ignored) {}
-            labels.add(label);
+            final String shown = label;
+            FrameLayout tile = new FrameLayout(this);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(px(RADIUS));
+            Drawable art = toned(bannerOf(pm, pkg));
+            ImageView iv = new ImageView(this);
+            if (art != null) {
+                bg.setColor(shownTone() == TONE_GLASS ? Style.GLASS : 0xFF1E1A1C);
+                iv.setImageDrawable(fit(art, w, h));
+                tile.addView(iv, new FrameLayout.LayoutParams(-1, -1));
+            } else {
+                bg.setColor(Style.GLASS); // no banner: its icon on glass, like the home screen's plain tiles
+                try { iv.setImageDrawable(fit(pm.getApplicationIcon(pkg), px(64), px(64))); } catch (Exception ignored) {}
+                tile.addView(iv, new FrameLayout.LayoutParams(px(64), px(64), Gravity.CENTER));
+            }
+            tile.setBackground(bg);
+            tile.setClipToOutline(true);
+            tile.setFocusable(true);
+            tile.setOnFocusChangeListener((v, has) -> {
+                if (has) name.setText(shown);
+                v.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
+                        .setDuration(has ? 260 : 180)
+                        .setInterpolator(has ? new OvershootInterpolator(1.6f) : new DecelerateInterpolator())
+                        .withLayer().start();
+            });
+            tile.setOnClickListener(v -> {
+                d.dismiss();
+                open(pkg);
+            });
+            card.addView(tile, at(pad + i * (w + gap), pad + headH, w, h));
+            if (first == null) first = tile;
         }
-        panel(Strings.t("Recently used"), labels, pos -> fit(pm.getApplicationIcon(pkgs.get(pos)), px(48), px(48)),
-                px(48), -1, null, which -> open(pkgs.get(which)));
+
+        FrameLayout frame = new FrameLayout(this);
+        frame.setClipChildren(false);
+        frame.addView(card, at(cx, cy, cw, ch));
+        d.setContentView(frame);
+        Window win = d.getWindow();
+        win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        win.setLayout(-1, -1);
+        win.setDimAmount(0.5f);
+        // Pops up a little, like the strip is lifted out of the page.
+        card.setScaleX(0.94f);
+        card.setScaleY(0.94f);
+        card.setAlpha(0f);
+        card.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(new DecelerateInterpolator()).start();
+        d.show();
+        if (first != null) first.requestFocus();
+    }
+
+    // An app's TV banner (the activity's, else the app's), or null when it has none.
+    private Drawable bannerOf(PackageManager pm, String pkg) {
+        try {
+            Intent li = launchIntent(pm, pkg);
+            Drawable b = li == null ? null : pm.getActivityBanner(li);
+            return b != null ? b : pm.getApplicationBanner(pkg);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // Saves an app list passed with --es apps "..." and shortcuts passed with --es quick "...".
@@ -564,6 +650,7 @@ public class MainActivity extends Activity {
         super.onResume();
         keepHomeGuardOn();
         restartStatus();
+        KidLock.unlocked = null; // back home: a locked app asks again next time
         // Rebuild only when apps were installed, removed or updated.
         if (dirty) {
             dirty = false;
@@ -687,7 +774,7 @@ public class MainActivity extends Activity {
                 return device + "  ·  " + Strings.t(key.equals(deviceJustOn) ? "is on, press OK to watch" : "HDMI input");
             Boolean picture = signal.get(key);
             return Strings.t("HDMI input") + "  ·  "
-                    + Strings.t(picture == null ? "No device on" : picture ? "Picture" : "No signal");
+                    + Strings.t(picture == null ? "No device on" : picture ? "Picture found" : "No signal");
         }
         if (SETTINGS.equals(key)) return android.text.TextUtils.join("  ·  ", translated(SETTINGS_ITEMS));
         String pkg = LIVE.equals(key) ? livePackage() : key;
@@ -1490,6 +1577,7 @@ public class MainActivity extends Activity {
             });
             return;
         } else if (LIVE.equals(key)) {
+            if (askFirst(key, livePackage())) return;
             openLiveTv();
             return;
         } else if (SETTINGS.equals(key)) {
@@ -1497,7 +1585,10 @@ public class MainActivity extends Activity {
                 if (which == 0) showWallpapers();
                 else if (which == 1) showTiles();
                 else if (which == 2) showStatusItems();
-                else if (which == 3) openBrightness();
+                else if (which == 3) showScreensaver();
+                else if (which == 4) showKidLock();
+                else if (which == 5) showBackup();
+                else if (which == 6) openBrightness();
                 else openTvSettings();
             });
             return;
@@ -1513,9 +1604,22 @@ public class MainActivity extends Activity {
         } else {
             i = launchIntent(getPackageManager(), key);
             if (i == null) return;
+            if (askFirst(key, key)) return;
         }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try { startActivity(i); } catch (Exception ignored) {}
+    }
+
+    // Kids lock: a locked app asks for the PIN first, then opens (true: asked, don't open it now).
+    private boolean askFirst(String key, String pkg) {
+        if (!KidLock.isLocked(this, pkg) || pkg.equals(KidLock.unlocked)) return false;
+        askPin(Strings.t("Enter PIN"), pin -> {
+            if (!KidLock.check(this, pin)) return false;
+            KidLock.unlocked = pkg;
+            open(key);
+            return true;
+        });
+        return true;
     }
 
     // Live TV apps an HDMI tile can open, in order. Droidlogic (Amlogic) TVs ship Live TV under their
@@ -1783,9 +1887,287 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        if (code == ASK_PHOTOS) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            if (!ok) getSharedPreferences(PREFS, 0).edit().putString("saver", "gradients").apply();
+            else if (Screensaver.countPhotos(this) == 0) toast("No photos found");
+            return;
+        }
         if (code != 1) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) openQuick("bluetooth");
         else openTvSettings(); // without it, the TV's settings still reach Bluetooth
+    }
+
+    // ---- Kids lock ----
+
+    interface PinCheck { boolean ok(String pin); } // true: taken, the pad closes; false: wrong, it shakes
+
+    // A PIN pad on liquid glass: four dots and the keys 1-9, delete, 0, close. The remote's own number
+    // keys work too. The fourth digit hands the PIN to check.
+    private void askPin(String title, final PinCheck check) {
+        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        int keyW = px(132), keyH = px(84), gap = px(16), pad = px(DOCK_PAD), headH = px(64), dotsH = px(56);
+        int cw = 3 * keyW + 2 * gap + 2 * pad, ch = pad + headH + dotsH + px(24) + 4 * keyH + 3 * gap + pad;
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int cx = (sw - cw) / 2, cy = (sh - ch) / 2;
+        final FrameLayout card = new FrameLayout(this);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        final TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(title);
+        head.setGravity(Gravity.CENTER);
+        card.addView(head, at(0, pad, cw, headH));
+        final LinearLayout dots = new LinearLayout(this);
+        dots.setGravity(Gravity.CENTER);
+        final GradientDrawable[] dot = new GradientDrawable[4];
+        for (int i = 0; i < 4; i++) {
+            dot[i] = new GradientDrawable();
+            dot[i].setShape(GradientDrawable.OVAL);
+            View v = new View(this);
+            v.setBackground(dot[i]);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(22), px(22));
+            lp.leftMargin = lp.rightMargin = px(14);
+            dots.addView(v, lp);
+        }
+        card.addView(dots, at(0, pad + headH, cw, dotsH));
+        final StringBuilder pin = new StringBuilder();
+        final Runnable paint = () -> {
+            for (int i = 0; i < 4; i++) {
+                dot[i].setColor(i < pin.length() ? Style.INK : Color.TRANSPARENT);
+                dot[i].setStroke(Math.max(1, px(Style.STROKE)), i < pin.length() ? Style.INK : Style.INK_3);
+            }
+        };
+        paint.run();
+        final Pick press = k -> {
+            if (k == -1) { if (pin.length() > 0) pin.setLength(pin.length() - 1); }
+            else if (k == -2) { d.cancel(); return; }
+            else if (pin.length() < 4) pin.append(k);
+            paint.run();
+            if (pin.length() < 4) return;
+            if (check.ok(pin.toString())) { d.dismiss(); return; }
+            pin.setLength(0);
+            head.setText(Strings.t("Wrong PIN"));
+            card.postDelayed(paint, 250);
+            android.animation.ObjectAnimator.ofFloat(card, "translationX", 0, px(24), -px(24), px(14), -px(14), 0)
+                    .setDuration(380).start();
+        };
+        int[] keys = {1, 2, 3, 4, 5, 6, 7, 8, 9, -1, 0, -2}; // -1 delete, -2 close
+        View five = null;
+        for (int i = 0; i < keys.length; i++) {
+            final int k = keys[i];
+            View b = pinKey(k);
+            b.setOnClickListener(v -> press.at(k));
+            card.addView(b, at(pad + (i % 3) * (keyW + gap), pad + headH + dotsH + px(24) + (i / 3) * (keyH + gap), keyW, keyH));
+            if (k == 5) five = b;
+        }
+        d.setOnKeyListener((dialog, code, ev) -> {
+            if (ev.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (code >= KeyEvent.KEYCODE_0 && code <= KeyEvent.KEYCODE_9) { press.at(code - KeyEvent.KEYCODE_0); return true; }
+            if (code == KeyEvent.KEYCODE_DEL) { press.at(-1); return true; }
+            return false;
+        });
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(card, at(cx, cy, cw, ch));
+        d.setContentView(frame);
+        Window win = d.getWindow();
+        win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        win.setLayout(-1, -1);
+        win.setDimAmount(0.5f);
+        d.show();
+        if (five != null) five.requestFocus(); // the middle, nearest to every key
+    }
+
+    // One key of the PIN pad: a glass capsule with a digit or an icon, white when focused.
+    private View pinKey(int k) {
+        FrameLayout b = new FrameLayout(this);
+        final GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(px(Style.RADIUS_TILE));
+        bg.setColor(Style.GLASS);
+        bg.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
+        b.setBackground(bg);
+        final TextView t = k >= 0 ? text(px(Style.TITLE), Style.INK, regular) : null;
+        final ImageView icon = k < 0 ? new ImageView(this) : null;
+        if (t != null) {
+            t.setText(String.valueOf(k));
+            t.setGravity(Gravity.CENTER);
+            b.addView(t, new FrameLayout.LayoutParams(-1, -1));
+        } else {
+            icon.setImageDrawable(new LineIcon(k == -1 ? LineIcon.PREV : LineIcon.CLOSE));
+            b.addView(icon, new FrameLayout.LayoutParams(px(36), px(36), Gravity.CENTER));
+        }
+        b.setFocusable(true);
+        b.setOnFocusChangeListener((v, has) -> {
+            bg.setColor(has ? Style.FOCUS : Style.GLASS);
+            if (t != null) t.setTextColor(has ? Style.FOCUS_INK : Style.INK);
+            if (icon != null) {
+                if (has) icon.setColorFilter(new PorterDuffColorFilter(Style.FOCUS_INK, PorterDuff.Mode.SRC_IN));
+                else icon.clearColorFilter();
+            }
+            v.animate().scaleX(has ? Style.SCALE_SMALL : 1f).scaleY(has ? Style.SCALE_SMALL : 1f).setDuration(150).start();
+        });
+        return b;
+    }
+
+    // Settings > Kids lock: no PIN yet, pick one (twice); else the PIN first, then what to lock, a new PIN,
+    // or the lock off.
+    private void showKidLock() {
+        if (!KidLock.hasPin(this)) {
+            newPin(this::chooseLockedApps);
+            return;
+        }
+        askPin(Strings.t("Enter PIN"), pin -> {
+            if (!KidLock.check(this, pin)) return false;
+            root.post(() -> panel(Strings.t("Kids lock"), Arrays.asList(Strings.t("Choose apps"), Strings.t("Change PIN"),
+                    Strings.t("Turn off kids lock")), which -> {
+                if (which == 0) chooseLockedApps();
+                else if (which == 1) newPin(null);
+                else {
+                    KidLock.clear(this);
+                    toast("Turn off kids lock");
+                }
+            }));
+            return true;
+        });
+    }
+
+    private void newPin(final Runnable then) {
+        askPin(Strings.t("New PIN"), first -> {
+            root.post(() -> askPin(Strings.t("Repeat the PIN"), again -> {
+                if (!again.equals(first)) {
+                    toast("The PINs don't match");
+                    return true; // start over from the menu
+                }
+                KidLock.setPin(this, first);
+                if (then != null) root.post(then);
+                return true;
+            }));
+            return true;
+        });
+    }
+
+    // Every app on the TV, ticked when locked; OK locks or unlocks it at once.
+    private void chooseLockedApps() {
+        final PackageManager pm = getPackageManager();
+        TreeMap<String, String> byLabel = launchableApps(false);
+        final List<String> pkgs = new ArrayList<>(byLabel.values());
+        final java.util.Set<String> locked = KidLock.locked(this);
+        final boolean[] on = new boolean[pkgs.size()];
+        for (int i = 0; i < on.length; i++) on[i] = locked.contains(pkgs.get(i));
+        panel(Strings.t("Choose apps"), new ArrayList<>(byLabel.keySet()), pos -> fit(pm.getApplicationIcon(pkgs.get(pos)), px(48), px(48)),
+                px(48), -1, null, on, which -> {
+            if (on[which]) locked.add(pkgs.get(which));
+            else locked.remove(pkgs.get(which));
+            KidLock.setLocked(this, locked);
+        });
+    }
+
+    // ---- Back up & restore ----
+
+    // What a backup holds: the choices made on the TV (apps and their order, looks, status bar,
+    // screensaver, kids lock). Not the timers or what was last open.
+    private static final String[] BACKUP_KEYS = {"apps", "quick", "wallpaper", "tiles", "tilesBrand", "status",
+            "saver", "pin", "locked"};
+    private static final String BACKUP_FILE = "tvhome-backup.json";
+
+    private void showBackup() {
+        panel(Strings.t("Back up & restore"), Arrays.asList(Strings.t("Back up now"), Strings.t("Restore")), which -> {
+            if (which == 0) toast(backUp() ? "Backed up" : "No backup found");
+            else restoreBackup();
+        });
+    }
+
+    // Writes the backup to this app's folder on the TV (where backup.sh fetches it) and, from Android 10,
+    // a copy to Download, which stays when the app is removed.
+    private boolean backUp() {
+        try {
+            org.json.JSONObject o = new org.json.JSONObject();
+            java.util.Map<String, ?> all = getSharedPreferences(PREFS, 0).getAll();
+            for (String k : BACKUP_KEYS) if (all.containsKey(k)) o.put(k, all.get(k));
+            byte[] data = o.toString(2).getBytes("UTF-8");
+            java.io.File dir = getExternalFilesDir(null);
+            if (dir == null) return false;
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(new java.io.File(dir, BACKUP_FILE))) {
+                out.write(data);
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                android.content.ContentResolver cr = getContentResolver();
+                Uri downloads = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                cr.delete(downloads, android.provider.MediaStore.MediaColumns.DISPLAY_NAME + "=?", new String[] {BACKUP_FILE});
+                android.content.ContentValues v = new android.content.ContentValues();
+                v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, BACKUP_FILE);
+                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json");
+                Uri copy = cr.insert(downloads, v);
+                if (copy != null) try (java.io.OutputStream out = cr.openOutputStream(copy)) { out.write(data); }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Reads the backup back (this app's folder first, then the copy in Download) and starts over with it.
+    private void restoreBackup() {
+        String json = null;
+        try {
+            java.io.File f = new java.io.File(getExternalFilesDir(null), BACKUP_FILE);
+            if (f.exists()) json = new String(java.nio.file.Files.readAllBytes(f.toPath()), "UTF-8");
+            if (json == null && android.os.Build.VERSION.SDK_INT >= 29) {
+                android.content.ContentResolver cr = getContentResolver();
+                try (android.database.Cursor c = cr.query(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        new String[] {android.provider.MediaStore.MediaColumns._ID},
+                        android.provider.MediaStore.MediaColumns.DISPLAY_NAME + "=?", new String[] {BACKUP_FILE}, null)) {
+                    if (c != null && c.moveToFirst()) {
+                        Uri u = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, c.getLong(0));
+                        try (java.io.InputStream in = cr.openInputStream(u)) {
+                            java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                            byte[] b = new byte[4096];
+                            for (int n; (n = in.read(b)) > 0; ) buf.write(b, 0, n);
+                            json = buf.toString("UTF-8");
+                        }
+                    }
+                }
+            }
+            if (json == null) { toast("No backup found"); return; }
+            org.json.JSONObject o = new org.json.JSONObject(json);
+            SharedPreferences.Editor e = getSharedPreferences(PREFS, 0).edit();
+            for (String k : BACKUP_KEYS) {
+                e.remove(k);
+                if (!o.has(k)) continue;
+                Object v = o.get(k);
+                if (v instanceof Boolean) e.putBoolean(k, (Boolean) v);
+                else e.putString(k, String.valueOf(v));
+            }
+            e.commit();
+            toast("Restored");
+            recreate(); // everything drawn again from the restored choices
+        } catch (Exception ex) {
+            toast("No backup found");
+        }
+    }
+
+    // ---- Screensaver ----
+
+    private static final String[] SAVER_LOOKS = {"Colour gradients", "Your photos (USB)"};
+    private static final String PHOTOS = "android.permission.READ_MEDIA_IMAGES", PHOTOS_OLD = "android.permission.READ_EXTERNAL_STORAGE";
+    private static final int ASK_PHOTOS = 2;
+
+    // The screensaver's look: the apps' colours, or photos from a USB stick (or the TV), which needs
+    // Android's photo permission once. Ticked when chosen.
+    private void showScreensaver() {
+        final boolean[] on = new boolean[SAVER_LOOKS.length];
+        on[Screensaver.photos(this) ? 1 : 0] = true;
+        panel(Strings.t("Screensaver"), Arrays.asList(translated(SAVER_LOOKS)), null, 0, -1, null, on, which -> {
+            on[0] = which == 0;
+            on[1] = which == 1;
+            getSharedPreferences(PREFS, 0).edit().putString("saver", which == 1 ? "photos" : "gradients").apply();
+            if (which != 1) return;
+            String perm = android.os.Build.VERSION.SDK_INT >= 33 ? PHOTOS : PHOTOS_OLD;
+            if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[] {perm}, ASK_PHOTOS);
+            else if (Screensaver.countPhotos(this) == 0) toast("No photos found");
+        });
+    }
+
+    private void toast(String label) {
+        android.widget.Toast.makeText(this, Strings.t(label), android.widget.Toast.LENGTH_SHORT).show();
     }
 
     // The TV's own picture screen, where brightness lives: the Picture shortcut's screens first (TCL's
@@ -1832,11 +2214,9 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
-        GradientDrawable panelBg = new GradientDrawable();
-        panelBg.setCornerRadius(px(Style.RADIUS_PANEL));
-        panelBg.setColor(Style.PANEL);
-        panelBg.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
-        box.setBackground(panelBg);
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        box.setBackground(glass(new android.graphics.Rect(sw - px(Style.PANEL_W + Style.PANEL_MARGIN),
+                px(Style.PANEL_MARGIN), sw - px(Style.PANEL_MARGIN), sh - px(Style.PANEL_MARGIN))));
 
         TextView head = text(px(Style.TITLE), Style.INK, semibold);
         head.setText(title);
@@ -1937,11 +2317,6 @@ public class MainActivity extends Activity {
         // The panel's corner minus its padding is the rows' corner: 40 - 16 = 24, so the curves nest.
         int pad = px(Style.RADIUS_PANEL - Style.RADIUS_TILE), rowH = px(72);
         box.setPadding(pad, pad, pad, pad);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(px(Style.RADIUS_PANEL));
-        bg.setColor(Style.PANEL);
-        bg.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
-        box.setBackground(bg);
         float widest = 0; // some languages need more room than the tile is wide
         for (int i = 0; i < items.length; i++) {
             final int which = i;
@@ -1976,6 +2351,7 @@ public class MainActivity extends Activity {
         int h = items.length * rowH + 2 * pad;
         int y = tileBottom + px(64);
         if (y + h > getResources().getDisplayMetrics().heightPixels - px(24)) y = at[1] - h - px(16);
+        box.setBackground(glass(new android.graphics.Rect(at[0], y, at[0] + w, y + h)));
         Window win = d.getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         win.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -2403,6 +2779,42 @@ public class MainActivity extends Activity {
 
     private static float smooth(float t) {
         return t * t * (3 - 2 * t);
+    }
+
+    // Liquid glass for a panel at this place on the screen, over a blurred copy of the page.
+    private Drawable glass(android.graphics.Rect onScreen) {
+        Bitmap page = backdrop();
+        android.graphics.Rect from = page == null ? null : new android.graphics.Rect(onScreen.left / BACKDROP,
+                onScreen.top / BACKDROP, onScreen.right / BACKDROP, onScreen.bottom / BACKDROP);
+        return new LiquidGlass(px(Style.RADIUS_PANEL), Math.max(1, px(Style.STROKE)),
+                page == null ? Style.LIQUID_SOLO : Style.LIQUID_TINT, page, from);
+    }
+
+    // The page as it is now, drawn at a quarter of its size and blurred: what glass floating over it
+    // shows through. Made once per panel as it opens (a few ms), never per frame. The HDMI preview is a
+    // separate surface and comes out black, which only makes the glass darker over a picture.
+    private static final int BACKDROP = 4;
+
+    private Bitmap backdrop() {
+        View page = getWindow().getDecorView();
+        int w = page.getWidth() / BACKDROP, h = page.getHeight() / BACKDROP;
+        if (w <= 0 || h <= 0) return null;
+        try {
+            Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            c.scale(1f / BACKDROP, 1f / BACKDROP);
+            page.draw(c);
+            int[] px = new int[w * h], tmp = new int[w * h];
+            b.getPixels(px, 0, w, 0, 0, w, h);
+            for (int pass = 0; pass < 2; pass++) {
+                boxBlur(px, tmp, w, h, 6, true);
+                boxBlur(tmp, px, w, h, 6, false);
+            }
+            b.setPixels(px, 0, w, 0, 0, w, h);
+            return b;
+        } catch (Throwable t) {
+            return null; // out of memory, or a view that can't draw in software: plain tinted glass
+        }
     }
 
     // One box blur along rows (or columns), edges clamped, channel by channel.

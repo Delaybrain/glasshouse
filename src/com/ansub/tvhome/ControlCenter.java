@@ -45,12 +45,8 @@ public class ControlCenter extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
-        GradientDrawable glass = new GradientDrawable();
-        glass.setCornerRadius(px(Style.RADIUS_PANEL));
-        glass.setColor(Style.PANEL);
-        glass.setStroke(Math.max(1, px(Style.STROKE)), Style.GLASS_STROKE);
-        panel.setBackground(glass);
-        panel.setElevation(px(30));
+        panel.setBackground(new LiquidGlass(px(Style.RADIUS_PANEL), Math.max(1, px(Style.STROKE)),
+                Style.LIQUID_SOLO, null, null));
 
         TextClock time = new TextClock(this);
         time.setFormat12Hour("h:mm");
