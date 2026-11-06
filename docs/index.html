@@ -111,8 +111,11 @@
 const W = 1920, H = 1080;
 const screens = [
   { img: "01-home", title: "Home",
-    text: "Your apps on a glass dock. The big picture and the name follow the focus; HDMI inputs show what's plugged in, with a live preview. Try Settings.",
-    spots: [{ x: 1104, y: 912, w: 186, h: 64, to: "02-settings", label: "Settings" }] },
+    text: "Your apps on a glass dock. The big picture and the name follow the focus; HDMI inputs show what's plugged in, with a live preview. Try HDMI 2 or Settings.",
+    spots: [{ x: 504, y: 912, w: 180, h: 64, to: "14-hdmi", label: "HDMI 2" },
+            { x: 1104, y: 912, w: 186, h: 64, to: "02-settings", label: "Settings" }] },
+  { img: "14-hdmi", title: "HDMI live preview",
+    text: "Go down to an HDMI input and what's coming in plays behind the whole page, dimmed so everything stays readable, with a LIVE badge and its resolution. OK opens it full screen. (Put together from a real screenshot and a drawn PC desktop: the TV blocks screenshots while a live picture plays.)" },
   { img: "02-settings", title: "Settings",
     text: "The home screen's own settings, the ones used most at the top. Pick one.",
     spots: [

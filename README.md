@@ -38,7 +38,11 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 <img src="docs/shots/13-glass.jpg" width="49%" alt="Glass tiles">
 <img src="docs/shots/07-control-center.jpg" width="49%" alt="Control Center">
 <img src="docs/shots/09-photos-card.jpg" width="49%" alt="Photos from your phone">
+<img src="docs/shots/14-hdmi.jpg" width="49%" alt="HDMI live preview behind the page (mock-up)">
+<img src="docs/shots/06-switcher.jpg" width="49%" alt="Hold Home: recently used apps">
 </p>
+
+<sub>The HDMI picture is a mock-up (a real screenshot with a drawn PC desktop behind it): the TV blocks screenshots while a live picture plays. All other pictures are real screenshots.</sub>
 
 ## Fast on a slow TV
 
