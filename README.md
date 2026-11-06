@@ -14,6 +14,8 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 
 > [!IMPORTANT]
 > **So far tested on exactly one TV:** a PEAQ 65GQU-5024C (built by Changhong, MediaTek chip, Google TV on Android 14, 1.9 GB RAM). The install, undo and cleanup scripts come from tv-detox, which was used on many TVs, but everything Glasshouse added (the home screen's looks, Control Center, the remote buttons, kids lock, photos over Wi-Fi) has only run there. Other TVs may differ, especially their remotes. Please [open an issue](https://github.com/Delaybrain/glasshouse/issues) with your TV's model either way.
+>
+> **The ready-made APK in [Releases](https://github.com/Delaybrain/glasshouse/releases) is exactly what runs on that PEAQ.** It may well run on other Android TVs, but nobody has checked. **On any other TV, build it from this code instead**, best by letting Claude Code or another coding agent do it with the [setup prompt](#first-setup-with-an-ai-assistant): it builds Glasshouse on your computer, checks what your remote's buttons send and adapts the code to your TV before installing it.
 
 > [!WARNING]
 > **Use at your own risk.** Changing a TV's home screen and turning off system apps over adb always carries some risk of leaving the TV stuck at the logo, restarting over and over, or needing a factory reset, which erases everything on it. It may also affect your warranty. Before you start, find out how to factory reset your TV (often with buttons on the TV itself) and note your logins. This is a free hobby project with **no warranty and no liability** for any damage or data loss (see [Disclaimer](#disclaimer)).
@@ -87,14 +89,20 @@ My TV is a <brand and model>.
    start. On Google TV leave Google TV's own home screen on unless I
    say otherwise (see "Replacing Google TV's home screen" in the README).
    If you're not sure, leave it on.
-6. Install Glasshouse with install.sh and these apps: <your apps>.
-   Then press Home and check it comes up. Test the remote's Home,
-   settings and apps buttons with me (README: "Remote buttons").
-7. Turn off animations. Ask me if the TV is OLED; if it is, keep the
+6. Unless my TV is a PEAQ 65GQU (the only one tested), build Glasshouse
+   from the code instead of using the release APK: build.sh, or
+   build.ps1 after setup-tools.ps1 on Windows. Before that, find out
+   what my remote's buttons send (adb shell getevent -l, README:
+   "Remote buttons") and adapt onKeyEvent in HomeGuard.java if they
+   differ. Show me what you change.
+7. Install Glasshouse with install.sh (it uses the APK you built) and
+   these apps: <your apps>. Then press Home and check it comes up.
+   Test the remote's Home, settings and apps buttons with me.
+8. Turn off animations. Ask me if the TV is OLED; if it is, keep the
    screensaver on.
-8. Wait 30 seconds, restart the TV once, and check it starts normally
+9. Wait 30 seconds, restart the TV once, and check it starts normally
    and Glasshouse comes up. Show me free memory before and after.
-9. Remind me to turn debugging off on the TV when we're done.
+10. Remind me to turn debugging off on the TV when we're done.
 ```
 
 3. **Turn debugging off** when it's done. While it's on, other devices on your network can ask to control the TV. Turn it back on only for `undo.sh` or updates.
@@ -111,7 +119,7 @@ You need a computer with `adb` ([platform tools](https://developer.android.com/t
    It installs Glasshouse, makes it the home screen, turns on HomeGuard and the screensaver, and grants the extras below. To pick the apps: `sh install.sh <TV_IP> "com.netflix.ninja,com.google.android.youtube.tv"`.
 3. **Turn debugging off** in Developer options when you're done. While it's on, other devices on your network can ask to control the TV.
 
-To build it yourself: `sh build.sh` (or `build.ps1` on Windows) with Java 17 and the Android SDK (platform and build-tools 34). `setup-tools.ps1` fetches both on Windows.
+Without a build of your own, `install.sh` downloads the release APK, the one made on the tested PEAQ. **On another TV, build it first**: `sh build.sh` (or `build.ps1` on Windows) with Java 17 and the Android SDK (platform and build-tools 34); `setup-tools.ps1` fetches both on Windows. `install.sh` then installs your build (`out/glasshouse.apk`) instead.
 
 ### What install.sh grants, and why
 
