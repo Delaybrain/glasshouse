@@ -46,6 +46,8 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Sending photos from a phone in the same Wi-Fi (PhotoDrop's little web server, only while its card is up). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Photos for the screensaver (USB stick or the TV), asked for when that look is picked. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
@@ -75,6 +77,9 @@
             android:launchMode="singleTask" />
         <!-- The screensaver: pick it in Settings > System > Ambient mode, or with
              adb shell settings put secure screensaver_components com.ansub.tvhome/.Screensaver -->
+        <activity android:name=".SaverPreview"
+            android:exported="false"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <service android:name=".Screensaver"
             android:label="Home: Uhr"
             android:exported="true"

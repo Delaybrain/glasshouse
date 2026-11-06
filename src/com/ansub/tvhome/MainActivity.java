@@ -120,8 +120,9 @@ public class MainActivity extends Activity {
     private static final float FOCUS_SCALE = Style.SCALE_TILE;
 
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
-    private static final String[] SETTINGS_ITEMS = {"Wallpaper", "Tiles", "Status bar", "Screensaver", "Kids lock",
-            "Back up & restore", "Brightness", "TV settings"};
+    // Most used first: the TV's own settings and brightness, then the looks, then what's set once.
+    private static final String[] SETTINGS_ITEMS = {"TV settings", "Brightness", "Wallpaper", "Tiles", "Status bar",
+            "Screensaver", "Kids lock", "Back up & restore"};
     // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
     // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
     private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight",
@@ -266,6 +267,7 @@ public class MainActivity extends Activity {
         root.setClipChildren(false);
         scroller.addView(root, new FrameLayout.LayoutParams(-1, -2));
         shownLocale = java.util.Locale.getDefault();
+        current = new java.lang.ref.WeakReference<>(this);
 
         // Top shelf, back to front: a soft wash of the art's colours, a scrim for the clock, the art itself
         // (sharp, at the right, like Apple TV), then the name.
@@ -1582,14 +1584,14 @@ public class MainActivity extends Activity {
             return;
         } else if (SETTINGS.equals(key)) {
             dropdown(tile(SETTINGS), SETTINGS_ITEMS, which -> {
-                if (which == 0) showWallpapers();
-                else if (which == 1) showTiles();
-                else if (which == 2) showStatusItems();
-                else if (which == 3) showScreensaver();
-                else if (which == 4) showKidLock();
-                else if (which == 5) showBackup();
-                else if (which == 6) openBrightness();
-                else openTvSettings();
+                if (which == 0) openTvSettings();
+                else if (which == 1) openBrightness();
+                else if (which == 2) showWallpapers();
+                else if (which == 3) showTiles();
+                else if (which == 4) showStatusItems();
+                else if (which == 5) showScreensaver();
+                else if (which == 6) showKidLock();
+                else showBackup();
             });
             return;
         } else if (isInput(key)) {
@@ -1890,7 +1892,7 @@ public class MainActivity extends Activity {
         if (code == ASK_PHOTOS) {
             boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
             if (!ok) getSharedPreferences(PREFS, 0).edit().putString("saver", "gradients").apply();
-            else if (Screensaver.countPhotos(this) == 0) toast("No photos found");
+            else if (SaverView.countPhotos(this) == 0) toast("No photos found");
             return;
         }
         if (code != 1) return;
@@ -2152,18 +2154,98 @@ public class MainActivity extends Activity {
 
     // The screensaver's look: the apps' colours, or photos from a USB stick (or the TV), which needs
     // Android's photo permission once. Ticked when chosen.
+    // Under the two looks, things to do: send photos over Wi-Fi, see the screensaver now, take the sent
+    // photos out again. Those rows are never ticked.
     private void showScreensaver() {
-        final boolean[] on = new boolean[SAVER_LOOKS.length];
-        on[Screensaver.photos(this) ? 1 : 0] = true;
-        panel(Strings.t("Screensaver"), Arrays.asList(translated(SAVER_LOOKS)), null, 0, -1, null, on, which -> {
+        List<String> rows = new ArrayList<>(Arrays.asList(translated(SAVER_LOOKS)));
+        rows.add(Strings.t("Photos from your phone (Wi-Fi)"));
+        rows.add(Strings.t("Show now"));
+        rows.add(Strings.t("Delete received photos"));
+        final boolean[] on = new boolean[rows.size()];
+        on[SaverView.photos(this) ? 1 : 0] = true;
+        panel(Strings.t("Screensaver"), rows, null, 0, -1, null, on, which -> {
+            if (which >= SAVER_LOOKS.length) {
+                on[which] = false;
+                int action = which - SAVER_LOOKS.length;
+                if (action == 0) showPhotoDrop(() -> { on[0] = false; on[1] = true; });
+                else if (action == 1) startActivity(new Intent(this, SaverPreview.class));
+                else android.widget.Toast.makeText(this, String.format(Strings.t("Photos deleted: %d"),
+                        PhotoDrop.deleteReceived(this)), android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
             on[0] = which == 0;
             on[1] = which == 1;
             getSharedPreferences(PREFS, 0).edit().putString("saver", which == 1 ? "photos" : "gradients").apply();
             if (which != 1) return;
             String perm = android.os.Build.VERSION.SDK_INT >= 33 ? PHOTOS : PHOTOS_OLD;
             if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[] {perm}, ASK_PHOTOS);
-            else if (Screensaver.countPhotos(this) == 0) toast("No photos found");
+            else if (SaverView.countPhotos(this) == 0) toast("No photos found");
         });
+    }
+
+    // The card for sending photos over Wi-Fi: the address to open on a phone or computer, and how many
+    // came in. The little web server (PhotoDrop) runs only while it's up. Photos that came in switch the
+    // screensaver to them (then).
+    private void showPhotoDrop(final Runnable then) {
+        String ip = localAddress();
+        if (ip == null) { toast("Offline"); return; }
+        final TextView got = text(px(Style.BODY), Style.INK_2, regular);
+        final PhotoDrop drop = new PhotoDrop(this, n -> got.setText(String.format(Strings.t("Photos received: %d"), n)));
+        int port;
+        try { port = drop.start(); } catch (java.io.IOException e) { toast("Offline"); return; }
+
+        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        int pad = px(DOCK_PAD), cw = px(960), ch = px(440);
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        int cx = (sw - cw) / 2, cy = (sh - ch) / 2;
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(pad, pad, pad, pad);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(Strings.t("Photos from your phone (Wi-Fi)"));
+        head.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView how = text(px(Style.BODY), Style.INK_2, regular);
+        how.setText(Strings.t("On your phone or computer, in the same Wi-Fi, open:"));
+        TextView url = text(px(Style.HEADLINE), Style.INK, semibold);
+        url.setText("http://" + ip + (port == 80 ? "" : ":" + port));
+        got.setText(String.format(Strings.t("Photos received: %d"), 0));
+        TextView back = text(px(Style.LABEL), Style.INK_3, regular);
+        back.setText(Strings.t("Back: done"));
+        card.addView(head);
+        for (TextView t : new TextView[] {how, url, got, back}) {
+            t.setGravity(Gravity.CENTER_HORIZONTAL);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+            lp.topMargin = px(t == url ? 16 : 28);
+            card.addView(t, lp);
+        }
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(card, at(cx, cy, cw, ch));
+        d.setContentView(frame);
+        d.setOnDismissListener(x -> {
+            drop.stop();
+            if (drop.count() == 0) return;
+            getSharedPreferences(PREFS, 0).edit().putString("saver", "photos").apply();
+            if (then != null) then.run();
+        });
+        Window win = d.getWindow();
+        win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        win.setLayout(-1, -1);
+        win.setDimAmount(0.5f);
+        d.show();
+    }
+
+    // The TV's address in the home network (IPv4), or null when it's offline.
+    private String localAddress() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        Network n = cm == null ? null : cm.getActiveNetwork();
+        android.net.LinkProperties lp = n == null ? null : cm.getLinkProperties(n);
+        if (lp == null) return null;
+        for (android.net.LinkAddress a : lp.getLinkAddresses())
+            if (a.getAddress() instanceof java.net.Inet4Address && !a.getAddress().isLoopbackAddress())
+                return a.getAddress().getHostAddress();
+        return null;
     }
 
     private void toast(String label) {
@@ -2782,7 +2864,18 @@ public class MainActivity extends Activity {
     }
 
     // Liquid glass for a panel at this place on the screen, over a blurred copy of the page.
-    private Drawable glass(android.graphics.Rect onScreen) {
+    // The home screen while it's up, for glass over it from Control Center (a window of its own).
+    private static java.lang.ref.WeakReference<MainActivity> current;
+
+    // Glass over the home screen's blurred copy, when the home screen is what's under it (Control Center
+    // opened on the home screen); null when another app is (its picture can't be copied).
+    static Drawable glassOverHome(android.graphics.Rect onScreen) {
+        MainActivity m = current == null ? null : current.get();
+        if (m == null || m.isFinishing() || m.getWindow().getDecorView().getWindowVisibility() != View.VISIBLE) return null;
+        return m.glass(onScreen);
+    }
+
+    Drawable glass(android.graphics.Rect onScreen) {
         Bitmap page = backdrop();
         android.graphics.Rect from = page == null ? null : new android.graphics.Rect(onScreen.left / BACKDROP,
                 onScreen.top / BACKDROP, onScreen.right / BACKDROP, onScreen.bottom / BACKDROP);

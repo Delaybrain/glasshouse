@@ -45,7 +45,12 @@ public class ControlCenter extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(px(Style.PANEL_PAD), px(Style.PANEL_PAD + 12), px(Style.PANEL_PAD), px(Style.PANEL_PAD));
-        panel.setBackground(new LiquidGlass(px(Style.RADIUS_PANEL), Math.max(1, px(Style.STROKE)),
+        // Over the home screen: the same glass as the menus, over its blurred copy. Over another app its
+        // picture can't be copied, so the glass is tinted more instead.
+        int sw = getResources().getDisplayMetrics().widthPixels, sh = getResources().getDisplayMetrics().heightPixels;
+        android.graphics.drawable.Drawable glass = MainActivity.glassOverHome(new android.graphics.Rect(
+                sw - px(Style.PANEL_W + Style.PANEL_MARGIN), px(Style.PANEL_MARGIN), sw - px(Style.PANEL_MARGIN), sh - px(Style.PANEL_MARGIN)));
+        panel.setBackground(glass != null ? glass : new LiquidGlass(px(Style.RADIUS_PANEL), Math.max(1, px(Style.STROKE)),
                 Style.LIQUID_SOLO, null, null));
 
         TextClock time = new TextClock(this);

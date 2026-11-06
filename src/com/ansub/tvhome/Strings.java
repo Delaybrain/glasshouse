@@ -21,6 +21,9 @@ final class Strings {
         "Kids lock", "Choose apps", "Change PIN", "Turn off kids lock", "Enter PIN", "New PIN", "Repeat the PIN",
         "Wrong PIN", "The PINs don't match", "Back up & restore", "Back up now", "Restore", "Backed up", "Restored",
         "No backup found", "Colour gradients", "Your photos (USB)", "No photos found",
+        "Photos from your phone (Wi-Fi)", "On your phone or computer, in the same Wi-Fi, open:",
+        "Photos received: %d", "Choose photos", "Sent", "Back: done", "Show now", "Delete received photos",
+        "Photos deleted: %d",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -41,6 +44,8 @@ final class Strings {
             "أعد إدخال الرمز", "رمز خاطئ", "الرمزان غير متطابقين", "النسخ الاحتياطي والاستعادة", "نسخ احتياطي الآن",
             "استعادة", "تم النسخ الاحتياطي", "تمت الاستعادة", "لا توجد نسخة احتياطية", "تدرجات لونية", "صورك (USB)",
             "لا توجد صور",
+            "صور من هاتفك (Wi-Fi)", "افتح على هاتفك أو حاسوبك في شبكة Wi-Fi نفسها:", "الصور المستلمة: %d",
+            "اختر الصور", "تم الإرسال", "رجوع: تم", "عرض الآن", "حذف الصور المستلمة", "الصور المحذوفة: %d",
         });
         LANGS.put("de", new String[] {
             "Einstellungen", "App hinzufügen", "Netzwerk", "Offline", "Ton", "Bild",
@@ -56,6 +61,9 @@ final class Strings {
             "PIN wiederholen", "Falsche PIN", "Die PINs stimmen nicht überein", "Sichern & wiederherstellen",
             "Jetzt sichern", "Wiederherstellen", "Gesichert", "Wiederhergestellt", "Keine Sicherung gefunden",
             "Farbverläufe", "Eigene Fotos (USB)", "Keine Fotos gefunden",
+            "Fotos vom Handy (WLAN)", "Auf dem Handy oder PC im selben WLAN öffnen:", "Empfangene Fotos: %d",
+            "Fotos auswählen", "Gesendet", "Zurück: fertig", "Jetzt ansehen", "Empfangene Fotos löschen",
+            "Fotos gelöscht: %d",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",
@@ -73,6 +81,9 @@ final class Strings {
             "PIN nuevo", "Repite el PIN", "PIN incorrecto", "Los PIN no coinciden", "Copia y restauración",
             "Hacer copia ahora", "Restaurar", "Copia guardada", "Restaurado", "No hay ninguna copia",
             "Degradados de color", "Tus fotos (USB)", "No hay fotos",
+            "Fotos desde el móvil (Wi-Fi)", "En el móvil o el ordenador, en la misma Wi-Fi, abre:",
+            "Fotos recibidas: %d", "Elegir fotos", "Enviadas", "Atrás: listo", "Ver ahora", "Borrar fotos recibidas",
+            "Fotos borradas: %d",
         });
         LANGS.put("fr", new String[] {
             "Paramètres", "Ajouter une app", "Réseau", "Hors ligne", "Son", "Image",
@@ -92,6 +103,9 @@ final class Strings {
             "Les codes ne correspondent pas", "Sauvegarde et restauration", "Sauvegarder", "Restaurer", "Sauvegardé",
             "Restauré", "Aucune sauvegarde trouvée", "Dégradés de couleurs", "Vos photos (USB)",
             "Aucune photo trouvée",
+            "Photos depuis le téléphone (Wi-Fi)", "Sur le téléphone ou l'ordinateur, sur le même Wi-Fi, ouvrez :",
+            "Photos reçues : %d", "Choisir des photos", "Envoyées", "Retour : terminé", "Voir maintenant",
+            "Supprimer les photos reçues", "Photos supprimées : %d",
         });
         LANGS.put("hi", new String[] {
             "सेटिंग्स", "ऐप जोड़ें", "नेटवर्क", "ऑफ़लाइन", "ध्वनि", "चित्र",
@@ -108,6 +122,8 @@ final class Strings {
             "चाइल्ड लॉक", "ऐप चुनें", "PIN बदलें", "चाइल्ड लॉक बंद करें", "PIN डालें", "नया PIN", "PIN दोबारा डालें",
             "गलत PIN", "PIN मेल नहीं खाते", "बैकअप और रीस्टोर", "अभी बैकअप लें", "रीस्टोर करें", "बैकअप हो गया",
             "रीस्टोर हो गया", "कोई बैकअप नहीं मिला", "रंगों के ग्रेडिएंट", "आपकी फ़ोटो (USB)", "कोई फ़ोटो नहीं मिली",
+            "फ़ोन से फ़ोटो (Wi-Fi)", "उसी Wi-Fi पर अपने फ़ोन या कंप्यूटर में खोलें:", "मिली फ़ोटो: %d",
+            "फ़ोटो चुनें", "भेजी गईं", "वापस: हो गया", "अभी देखें", "मिली फ़ोटो हटाएँ", "हटाई गई फ़ोटो: %d",
         });
         String[] id = {
             "Setelan", "Tambah aplikasi", "Jaringan", "Offline", "Suara", "Gambar",
@@ -125,6 +141,9 @@ final class Strings {
             "Ulangi PIN", "PIN salah", "PIN tidak cocok", "Cadangkan & pulihkan", "Cadangkan sekarang", "Pulihkan",
             "Tercadangkan", "Dipulihkan", "Cadangan tidak ditemukan", "Gradasi warna", "Foto Anda (USB)",
             "Foto tidak ditemukan",
+            "Foto dari ponsel (Wi-Fi)", "Di ponsel atau komputer, di Wi-Fi yang sama, buka:", "Foto diterima: %d",
+            "Pilih foto", "Terkirim", "Kembali: selesai", "Lihat sekarang", "Hapus foto yang diterima",
+            "Foto dihapus: %d",
         };
         LANGS.put("id", id);
         LANGS.put("in", id); // Java's old code for Indonesian, which Android still reports
@@ -145,6 +164,9 @@ final class Strings {
             "Nuovo PIN", "Ripeti il PIN", "PIN errato", "I PIN non coincidono", "Backup e ripristino",
             "Esegui backup ora", "Ripristina", "Backup eseguito", "Ripristinato", "Nessun backup trovato",
             "Sfumature di colore", "Le tue foto (USB)", "Nessuna foto trovata",
+            "Foto dal telefono (Wi-Fi)", "Sul telefono o sul computer, nella stessa Wi-Fi, apri:",
+            "Foto ricevute: %d", "Scegli le foto", "Inviate", "Indietro: fine", "Mostra ora",
+            "Elimina le foto ricevute", "Foto eliminate: %d",
         });
         LANGS.put("ja", new String[] {
             "設定", "アプリを追加", "ネットワーク", "オフライン", "サウンド", "画像",
@@ -158,6 +180,8 @@ final class Strings {
             "キッズロック", "アプリを選択", "PINを変更", "キッズロックをオフ", "PINを入力", "新しいPIN", "PINをもう一度", "PINが違います", "PINが一致しません",
             "バックアップと復元", "今すぐバックアップ", "復元", "バックアップしました", "復元しました", "バックアップが見つかりません", "カラーグラデーション", "あなたの写真 (USB)",
             "写真が見つかりません",
+            "スマホから写真 (Wi-Fi)", "同じWi-Fiのスマホやパソコンで開いてください:", "受信した写真: %d", "写真を選ぶ", "送信済み", "戻る: 完了", "今すぐ表示",
+            "受信した写真を削除", "削除した写真: %d",
         });
         LANGS.put("ko", new String[] {
             "설정", "앱 추가", "네트워크", "오프라인", "소리", "화면",
@@ -169,6 +193,8 @@ final class Strings {
             "다운로드 속도", "꺼짐 타이머", "CPU 클럭", "RAM 사용량", "RAM (GB)", "브랜드 색상도", "낮에는 밝게, 밤에는 어둡게", "최근 사용",
             "어린이 잠금", "앱 선택", "PIN 변경", "어린이 잠금 끄기", "PIN 입력", "새 PIN", "PIN 다시 입력", "PIN이 틀렸습니다", "PIN이 일치하지 않습니다",
             "백업 및 복원", "지금 백업", "복원", "백업했습니다", "복원했습니다", "백업이 없습니다", "색상 그라데이션", "내 사진 (USB)", "사진이 없습니다",
+            "휴대폰에서 사진 보내기 (Wi-Fi)", "같은 Wi-Fi의 휴대폰이나 컴퓨터에서 열기:", "받은 사진: %d", "사진 선택", "보냄", "뒤로: 완료", "지금 보기",
+            "받은 사진 삭제", "삭제한 사진: %d",
         });
         LANGS.put("nl", new String[] {
             "Instellingen", "App toevoegen", "Netwerk", "Offline", "Geluid", "Beeld",
@@ -186,6 +212,9 @@ final class Strings {
             "Nieuwe pincode", "Herhaal de pincode", "Onjuiste pincode", "De pincodes komen niet overeen",
             "Back-up en herstel", "Nu back-up maken", "Herstellen", "Back-up gemaakt", "Hersteld",
             "Geen back-up gevonden", "Kleurverlopen", "Je foto's (USB)", "Geen foto's gevonden",
+            "Foto's van je telefoon (wifi)", "Open op je telefoon of computer, op hetzelfde wifi:",
+            "Foto's ontvangen: %d", "Foto's kiezen", "Verzonden", "Terug: klaar", "Nu bekijken",
+            "Ontvangen foto's verwijderen", "Foto's verwijderd: %d",
         });
         LANGS.put("pl", new String[] {
             "Ustawienia", "Dodaj aplikację", "Sieć", "Offline", "Dźwięk", "Obraz",
@@ -203,6 +232,9 @@ final class Strings {
             "Nowy PIN", "Powtórz PIN", "Nieprawidłowy PIN", "Kody PIN się nie zgadzają", "Kopia i przywracanie",
             "Utwórz kopię teraz", "Przywróć", "Kopia utworzona", "Przywrócono", "Nie znaleziono kopii",
             "Gradienty kolorów", "Twoje zdjęcia (USB)", "Nie znaleziono zdjęć",
+            "Zdjęcia z telefonu (Wi-Fi)", "Na telefonie lub komputerze w tej samej sieci Wi-Fi otwórz:",
+            "Odebrane zdjęcia: %d", "Wybierz zdjęcia", "Wysłano", "Wstecz: gotowe", "Pokaż teraz",
+            "Usuń odebrane zdjęcia", "Usunięte zdjęcia: %d",
         });
         LANGS.put("pt", new String[] { // Brazilian Portuguese
             "Configurações", "Adicionar app", "Rede", "Sem conexão", "Som", "Imagem",
@@ -220,6 +252,9 @@ final class Strings {
             "Novo PIN", "Repita o PIN", "PIN incorreto", "Os PINs não coincidem", "Backup e restauração",
             "Fazer backup agora", "Restaurar", "Backup feito", "Restaurado", "Nenhum backup encontrado",
             "Gradientes de cor", "Suas fotos (USB)", "Nenhuma foto encontrada",
+            "Fotos do celular (Wi-Fi)", "No celular ou computador, no mesmo Wi-Fi, abra:", "Fotos recebidas: %d",
+            "Escolher fotos", "Enviadas", "Voltar: pronto", "Ver agora", "Apagar fotos recebidas",
+            "Fotos apagadas: %d",
         });
         LANGS.put("ru", new String[] {
             "Настройки", "Добавить", "Сеть", "Нет сети", "Звук", "Изображение",
@@ -237,6 +272,9 @@ final class Strings {
             "Новый PIN", "Повторите PIN", "Неверный PIN", "PIN-коды не совпадают", "Резервная копия",
             "Создать копию", "Восстановить", "Копия создана", "Восстановлено", "Копия не найдена",
             "Цветовые переливы", "Ваши фото (USB)", "Фото не найдены",
+            "Фото с телефона (Wi-Fi)", "На телефоне или компьютере в той же сети Wi-Fi откройте:",
+            "Получено фото: %d", "Выбрать фото", "Отправлено", "Назад: готово", "Показать сейчас",
+            "Удалить полученные фото", "Удалено фото: %d",
         });
         LANGS.put("tr", new String[] {
             "Ayarlar", "Uygulama ekle", "Ağ", "Çevrimdışı", "Ses", "Görüntü",
@@ -253,6 +291,9 @@ final class Strings {
             "PIN'i tekrarlayın", "Yanlış PIN", "PIN'ler eşleşmiyor", "Yedekle ve geri yükle", "Şimdi yedekle",
             "Geri yükle", "Yedeklendi", "Geri yüklendi", "Yedek bulunamadı", "Renk geçişleri",
             "Fotoğraflarınız (USB)", "Fotoğraf bulunamadı",
+            "Telefondan fotoğraf (Wi-Fi)", "Aynı Wi-Fi'deki telefon veya bilgisayarda açın:", "Alınan fotoğraf: %d",
+            "Fotoğraf seç", "Gönderildi", "Geri: bitti", "Şimdi göster", "Alınan fotoğrafları sil",
+            "Silinen fotoğraf: %d",
         });
         LANGS.put("uk", new String[] {
             "Налаштування", "Додати додаток", "Мережа", "Офлайн", "Звук", "Зображення",
@@ -269,6 +310,9 @@ final class Strings {
             "Повторіть PIN", "Неправильний PIN", "PIN-коди не збігаються", "Резервна копія", "Створити копію",
             "Відновити", "Копію створено", "Відновлено", "Копію не знайдено", "Кольорові переливи",
             "Ваші фото (USB)", "Фото не знайдено",
+            "Фото з телефона (Wi-Fi)", "На телефоні чи комп'ютері в тій самій мережі Wi-Fi відкрийте:",
+            "Отримано фото: %d", "Вибрати фото", "Надіслано", "Назад: готово", "Показати зараз",
+            "Видалити отримані фото", "Видалено фото: %d",
         });
         LANGS.put("zh", new String[] { // Simplified Chinese
             "设置", "添加应用", "网络", "未联网", "声音", "图像",
@@ -280,6 +324,8 @@ final class Strings {
             "品牌色也一起调整", "白天浅色，夜间深色", "最近使用",
             "儿童锁", "选择应用", "更改 PIN 码", "关闭儿童锁", "输入 PIN 码", "新 PIN 码", "再次输入 PIN 码", "PIN 码错误", "两次 PIN 码不一致",
             "备份与恢复", "立即备份", "恢复", "已备份", "已恢复", "未找到备份", "彩色渐变", "你的照片 (USB)", "未找到照片",
+            "从手机发送照片 (Wi-Fi)", "在同一 Wi-Fi 下的手机或电脑上打开：", "已收到照片：%d", "选择照片", "已发送", "返回：完成", "立即查看", "删除收到的照片",
+            "已删除照片：%d",
         });
         String[] hant = { // Traditional Chinese
             "設定", "新增應用程式", "網路", "離線", "音效", "影像",
@@ -291,6 +337,8 @@ final class Strings {
             "記憶體 (GB)", "品牌色也一起調整", "白天淺色，夜間深色", "最近使用",
             "兒童鎖", "選擇應用程式", "變更 PIN 碼", "關閉兒童鎖", "輸入 PIN 碼", "新 PIN 碼", "再次輸入 PIN 碼", "PIN 碼錯誤", "兩次 PIN 碼不一致",
             "備份與還原", "立即備份", "還原", "已備份", "已還原", "找不到備份", "彩色漸層", "你的相片 (USB)", "找不到相片",
+            "從手機傳送相片 (Wi-Fi)", "在同一 Wi-Fi 的手機或電腦上開啟：", "已收到相片：%d", "選擇相片", "已傳送", "返回：完成", "立即查看", "刪除收到的相片",
+            "已刪除相片：%d",
         };
         LANGS.put("zh-TW", hant);
         LANGS.put("zh-HK", hant);
