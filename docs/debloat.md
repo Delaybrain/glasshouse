@@ -1,5 +1,9 @@
 # Cleaning your TV safely
 
+> **At your own risk, with no warranty or liability.** Turning off system apps can always leave a
+> TV stuck at the logo, restarting, or needing a factory reset that erases everything on it. The
+> rules below lower that risk; they can't remove it. See the README's Disclaimer.
+
 Glasshouse does two jobs. The home screen is automatic. Turning off the junk is a judgement
 call for every app, so it is left to whoever is driving the setup. This page is that
 judgement, plus the rules that keep it reversible.

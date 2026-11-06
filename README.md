@@ -15,6 +15,9 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 > [!IMPORTANT]
 > **So far tested on exactly one TV:** a PEAQ 65GQU-5024C (built by Changhong, MediaTek chip, Google TV on Android 14, 1.9 GB RAM). The install, undo and cleanup scripts come from tv-detox, which was used on many TVs, but everything Glasshouse added (the home screen's looks, Control Center, the remote buttons, kids lock, photos over Wi-Fi) has only run there. Other TVs may differ, especially their remotes. Please [open an issue](https://github.com/Delaybrain/glasshouse/issues) with your TV's model either way.
 
+> [!WARNING]
+> **Use at your own risk.** Changing a TV's home screen and turning off system apps over adb always carries some risk of leaving the TV stuck at the logo, restarting over and over, or needing a factory reset, which erases everything on it. It may also affect your warranty. Before you start, find out how to factory reset your TV (often with buttons on the TV itself) and note your logins. This is a free hobby project with **no warranty and no liability** for any damage or data loss (see [Disclaimer](#disclaimer)).
+
 ## What you get
 
 - **Your apps on a glass dock.** The big picture and name at the top follow the focus. The row scrolls past six apps and wraps round. Hold OK on an app to move, replace or remove it.
@@ -171,6 +174,10 @@ Glasshouse started as part of making a slow TV fast again. [docs/debloat.md](doc
 - **Tested on** one TV, a PEAQ 65GQU-5024C with Android 14 (see the top). Older Android versions may work; the photo features need Android 10 or newer.
 - **What apps can't do:** "Continue watching" rows from Netflix and others, CPU use in percent, and temperatures are closed to apps on Android TV. Glasshouse shows what it can (CPU speed, RAM).
 - **Privacy:** nothing leaves your home network. The photo web server runs only while its card is open and takes only pictures or a backup.
+
+## Disclaimer
+
+Glasshouse and its scripts are provided "as is", without warranty of any kind. You use them at your own risk and are responsible for what you run on your TV. The authors and contributors are not liable for any damage, data loss, broken or unusable devices, lost warranty, or other harm arising from using them, as far as the law allows. Nothing here is support from, or approved by, your TV's maker or Google. If you're not comfortable fixing a TV that won't start (adb, factory reset), don't turn off system apps. The full terms are in the [LICENSE](LICENSE).
 
 ## Credits
 
