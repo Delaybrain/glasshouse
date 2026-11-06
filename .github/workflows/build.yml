@@ -37,8 +37,8 @@ jobs:
         run: sh build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: tvhome-apk
-          path: out/tvhome.apk
+          name: glasshouse-apk
+          path: out/glasshouse.apk
 
   emulator-test:
     needs: build
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
-          name: tvhome-apk
+          name: glasshouse-apk
           path: out
       - name: Enable KVM
         run: |
@@ -81,9 +81,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: tvhome-apk
+          name: glasshouse-apk
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" tvhome.apk --repo "$GITHUB_REPOSITORY" \
+          gh release create "$GITHUB_REF_NAME" glasshouse.apk --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" --notes "Install with: sh install.sh <TV_IP>"

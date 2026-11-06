@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -116,7 +116,7 @@ public class ControlCenter extends Activity {
 
     // When the screensaver starts, or off. Its own settings page went with Google TV's screensaver, so
     // it's here. The wait is Settings.System's screen-off timeout (on a TV that starts the screensaver),
-    // which needs WRITE_SETTINGS: adb shell appops set com.ansub.tvhome WRITE_SETTINGS allow
+    // which needs WRITE_SETTINGS: adb shell appops set com.delaybrain.glasshouse WRITE_SETTINGS allow
     private static final int[] SAVER_MINUTES = {0, 5, 10, 15, 30}; // 0: off
 
     private int saverMinutes() {
@@ -144,7 +144,7 @@ public class ControlCenter extends Activity {
     }
 
     // How long the TV waits without a button press before it goes to sleep. OK steps through these and
-    // the panel stays open. Only with: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS
+    // the panel stays open. Only with: adb shell pm grant com.delaybrain.glasshouse android.permission.WRITE_SECURE_SETTINGS
     private static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 120}; // 0: never
     private static final String SLEEP = "sleep_timeout"; // Settings.Secure, in ms, -1 for never
 

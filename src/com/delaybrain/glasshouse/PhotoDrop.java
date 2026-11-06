@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -125,7 +125,7 @@ final class PhotoDrop {
                 String json;
                 try { json = Backup.json(context); } catch (Exception e) { reply(out, "500 Internal Server Error", "text/plain", "", "no"); return; }
                 reply(out, "200 OK", "application/json; charset=utf-8",
-                        "Content-Disposition: attachment; filename=\"tvhome-backup.json\"\r\n", json);
+                        "Content-Disposition: attachment; filename=\"glasshouse-backup.json\"\r\n", json);
             } else if (folder == null && method.equals("POST") && path.equals("/restore")) {
                 if (length <= 0 || length > MAX_BACKUP) { reply(out, "413 Payload Too Large", "text/plain", "", "no"); return; }
                 ByteArrayOutputStream body = new ByteArrayOutputStream();
@@ -276,7 +276,7 @@ final class PhotoDrop {
 
     private String backupPage() {
         return head()
-                + "<div class='row'><a class='btn' href='/backup' download='tvhome-backup.json'>"
+                + "<div class='row'><a class='btn' href='/backup' download='glasshouse-backup.json'>"
                 + html(Strings.t("Download backup")) + "</a>"
                 + "<label class='btn glass'>" + html(Strings.t("Upload backup"))
                 + "<input id='f' type='file' accept='.json,application/json'></label></div><div id='s'></div></div>"

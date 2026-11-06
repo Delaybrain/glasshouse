@@ -36,12 +36,12 @@ is_off() { sh_tv pm list packages -d "$1" | grep -qx "package:$1"; }
 installed() { sh_tv pm list packages "$1" | grep -qx "package:$1"; }
 
 # shellcheck disable=SC2034 # ME is read inside the eval'd check strings below
-ME=com.ansub.tvhome/.MainActivity
+ME=com.delaybrain.glasshouse/.MainActivity
 home() { sh_tv cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME | tail -1; }
 echo "Home screen"
 # The TV's own launchers first: while one is on, Home can't be fixed.
 # In the same argument as cat: Git Bash on Windows turns an argument that starts with / into a Windows path.
-turned_off=$(sh_tv "cat /data/local/tmp/tvhome-disabled.txt" 2>/dev/null | sort -u)
+turned_off=$(sh_tv "cat /data/local/tmp/glasshouse-disabled.txt" 2>/dev/null | sort -u)
 for p in $turned_off; do
   check "$p stays off" "is_off $p" "sh_tv pm disable-user --user 0 $p"
 done
@@ -51,7 +51,7 @@ if [ "$(home)" != "$ME" ] && installed $LAUNCHERX && ! is_off $LAUNCHERX && ! ec
   echo "  ok    Home opens Google TV's home screen (kept on, as install.sh said; GOOGLE_TV=1 turns it off)"
 else
   check "Home opens this home screen" '[ "$(home)" = "$ME" ]' \
-    'sh_tv cmd role add-role-holder --user 0 android.app.role.HOME com.ansub.tvhome; sh_tv cmd package set-home-activity "$ME"'
+    'sh_tv cmd role add-role-holder --user 0 android.app.role.HOME com.delaybrain.glasshouse; sh_tv cmd package set-home-activity "$ME"'
 fi
 
 if [ -n "$LIST" ]; then

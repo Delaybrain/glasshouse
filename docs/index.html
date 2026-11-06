@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glasshouse – a tour</title>
+<meta name="description" content="Click through Glasshouse, a fast, glassy home screen for Android TV and Google TV. Real screenshots from a TV.">
+<style>
+  :root {
+    --bg: #12131a; --ink: #fff; --ink2: rgba(255,255,255,.72); --ink3: rgba(255,255,255,.5);
+    --glass: rgba(255,255,255,.08); --rim: rgba(255,255,255,.22); --focus: #fff; --focus-ink: #111318;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    background: radial-gradient(1200px 700px at 10% -10%, #5b3fc4 0, transparent 60%),
+                radial-gradient(1000px 700px at 100% 110%, #2349b8 0, transparent 60%), var(--bg);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
+          background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); border: 1px solid var(--rim);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
+  h1 { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -.01em; }
+  .tag { color: var(--ink2); font-size: 15px; }
+  .gh { color: var(--focus-ink); background: var(--focus); text-decoration: none; font-weight: 600;
+        padding: 10px 18px; border-radius: 999px; }
+  .stage { position: relative; border-radius: 26px; padding: 14px; background: #08090d;
+           box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.08); }
+  .screen { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 14px; background: #000; cursor: pointer; }
+  .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .35s ease; }
+  .screen img.out { opacity: 0; }
+  .spot { position: absolute; border: 0; padding: 0; background: transparent; border-radius: 12px; cursor: pointer;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0); transition: box-shadow .2s, background .2s; }
+  .spot:hover, .spot:focus-visible { box-shadow: 0 0 0 3px rgba(255,255,255,.9); background: rgba(255,255,255,.08); outline: none; }
+  .spot.pulse { animation: pulse 1.8s ease-in-out 2; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255,255,255,.85); } }
+  .bar { display: flex; align-items: center; gap: 16px; margin-top: 22px; flex-wrap: wrap; }
+  .caption { flex: 1 1 420px; padding: 18px 22px; border-radius: 22px; background: var(--glass); border: 1px solid var(--rim);
+             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+  .caption h2 { margin: 0 0 4px; font-size: 19px; font-weight: 600; }
+  .caption p { margin: 0; color: var(--ink2); }
+  .count { color: var(--ink3); font-size: 13px; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+  .nav { display: flex; gap: 10px; }
+  .btn { border: 1px solid var(--rim); background: var(--glass); color: var(--ink); font: inherit; font-weight: 600;
+         padding: 12px 20px; border-radius: 999px; cursor: pointer; }
+  .btn.primary { background: var(--focus); color: var(--focus-ink); border-color: var(--focus); }
+  .btn:focus-visible { outline: 3px solid rgba(255,255,255,.6); outline-offset: 2px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 22px; }
+  .thumb { padding: 0; border: 2px solid transparent; border-radius: 12px; overflow: hidden; background: #000; cursor: pointer;
+           aspect-ratio: 16 / 9; opacity: .6; transition: opacity .2s, transform .2s, border-color .2s; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb:hover { opacity: .9; }
+  .thumb[aria-current="true"] { opacity: 1; border-color: var(--focus); transform: scale(1.04); }
+  .hint { color: var(--ink3); font-size: 13px; margin-top: 14px; text-align: center; }
+  footer { margin-top: 36px; color: var(--ink3); font-size: 13px; text-align: center; }
+  footer a { color: var(--ink2); }
+  @media (max-width: 600px) { h1 { font-size: 22px; } .stage { padding: 8px; border-radius: 18px; } .nav { width: 100%; } .nav .btn { flex: 1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M12 17v3M8 20h8"/></svg>
+      </div>
+      <div>
+        <h1>Glasshouse</h1>
+        <div class="tag">A fast, glassy home screen for Android TV and Google TV. Real screenshots from a 1.9 GB TV.</div>
+      </div>
+    </div>
+    <a class="gh" href="https://github.com/Delaybrain/glasshouse">Get it on GitHub</a>
+  </header>
+
+  <div class="stage">
+    <div class="screen" id="screen" role="button" tabindex="0" aria-label="Next screen">
+      <img id="img" alt="">
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="caption" aria-live="polite">
+      <div class="count" id="count"></div>
+      <h2 id="title"></h2>
+      <p id="text"></p>
+    </div>
+    <div class="nav">
+      <button class="btn" id="prev" type="button">Back</button>
+      <button class="btn primary" id="next" type="button">Next</button>
+    </div>
+  </div>
+  <div class="hint">Click the highlighted spots, anywhere else for the next screen, or use the arrow keys.</div>
+
+  <div class="thumbs" id="thumbs"></div>
+
+  <footer>
+    Glasshouse grew out of <a href="https://github.com/Ansub/tv-detox">tv-detox</a> by Ansub Khan and started with
+    <a href="https://github.com/seun-novodev/android-tv-debloat-toolkit">android-tv-debloat-toolkit</a> by seun-novodev, both MIT.
+    App names and logos belong to their owners.
+  </footer>
+</div>
+
+<script>
+// Each screen: the picture, what it shows, and spots on it (in the TV's 1920x1080 pixels) that go to another.
+const W = 1920, H = 1080;
+const screens = [
+  { img: "01-home", title: "Home",
+    text: "Your apps on a glass dock. The big picture and the name follow the focus; HDMI inputs show what's plugged in, with a live preview. Try Settings.",
+    spots: [{ x: 1104, y: 912, w: 186, h: 64, to: "02-settings", label: "Settings" }] },
+  { img: "02-settings", title: "Settings",
+    text: "The home screen's own settings, the ones used most at the top. Pick one.",
+    spots: [
+      { x: 1052, y: 446, w: 292, h: 72, to: "03-wallpaper", label: "Wallpaper" },
+      { x: 1052, y: 518, w: 292, h: 72, to: "04-tiles", label: "Tiles" },
+      { x: 1052, y: 590, w: 292, h: 72, to: "05-status", label: "Status bar" },
+      { x: 1052, y: 662, w: 292, h: 72, to: "09-photos-card", label: "Screensaver" },
+      { x: 1052, y: 734, w: 292, h: 72, to: "08-pin", label: "Kids lock" } ] },
+  { img: "03-wallpaper", title: "Wallpaper",
+    text: "Fourteen gradients drawn once into a picture (so moving around stays smooth), a photo from a USB stick, or one sent from your phone." },
+  { img: "04-tiles", title: "Tiles",
+    text: "One look for every app: dark, light, glass, black & white, spotlight, or light by day and dark at night. A banner on white or black gets its background turned round, its colours kept." },
+  { img: "12-dark", title: "Dark tiles",
+    text: "White banners turn black, black lettering turns white, Netflix stays red. Brand colours like Prime's blue can follow too." },
+  { img: "13-glass", title: "Glass tiles",
+    text: "The logos sit straight on the dock's glass." },
+  { img: "05-status", title: "Status bar",
+    text: "Pick what the top shows: clock, network, date, CPU speed, RAM, download speed, and the off timer while one runs." },
+  { img: "06-switcher", title: "Recently used",
+    text: "Hold Home: the apps you used last, newest first, on a strip of glass." },
+  { img: "07-control-center", title: "Control Center",
+    text: "The remote's settings button: Bluetooth, network, picture, sound, an off timer, and when the screensaver and sleep start." },
+  { img: "08-pin", title: "Kids lock",
+    text: "A PIN for the apps you pick. It asks however the app is opened, by voice too." },
+  { img: "09-photos-card", title: "Photos from your phone",
+    text: "Scan the code with your phone's camera, or type the address on a computer in the same Wi-Fi. A tiny web server runs on the TV only while this is open." },
+  { img: "10-phone-page", title: "On the phone",
+    text: "Pick photos or drop them in: each shows its own progress and lands on the TV. Backups go the same way." },
+  { img: "11-screensaver", title: "Screensaver",
+    text: "A big clock over your apps' colours drifting slowly, or your photos." }
+];
+const byName = Object.fromEntries(screens.map((s, i) => [s.img, i]));
+let at = 0;
+const $ = id => document.getElementById(id);
+const img = $("img"), screen = $("screen");
+
+function show(i, fromSpot) {
+  at = (i + screens.length) % screens.length;
+  const s = screens[at];
+  img.classList.add("out");
+  setTimeout(() => {
+    img.onload = img.onerror = () => img.classList.remove("out");
+    img.src = "shots/" + s.img + ".jpg";
+    img.alt = s.title + ": " + s.text;
+  }, fromSpot ? 120 : 160);
+  $("title").textContent = s.title;
+  $("text").textContent = s.text;
+  $("count").textContent = (at + 1) + " / " + screens.length;
+  screen.querySelectorAll(".spot").forEach(b => b.remove());
+  (s.spots || []).forEach((p, n) => {
+    const b = document.createElement("button");
+    b.className = "spot pulse";
+    b.type = "button";
+    b.setAttribute("aria-label", p.label);
+    b.style.left = (p.x / W * 100) + "%"; b.style.top = (p.y / H * 100) + "%";
+    b.style.width = (p.w / W * 100) + "%"; b.style.height = (p.h / H * 100) + "%";
+    b.addEventListener("click", e => { e.stopPropagation(); show(byName[p.to], true); });
+    screen.appendChild(b);
+  });
+  document.querySelectorAll(".thumb").forEach((t, n) => t.setAttribute("aria-current", n === at ? "true" : "false"));
+  try { history.replaceState(null, "", "#" + s.img); } catch (e) {}
+}
+
+screens.forEach((s, i) => {
+  const t = document.createElement("button");
+  t.className = "thumb"; t.type = "button"; t.setAttribute("aria-label", s.title);
+  t.innerHTML = '<img loading="lazy" alt="" src="shots/' + s.img + '.jpg">';
+  t.addEventListener("click", () => show(i));
+  $("thumbs").appendChild(t);
+});
+screen.addEventListener("click", () => show(at + 1));
+screen.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); show(at + 1); } });
+$("next").addEventListener("click", () => show(at + 1));
+$("prev").addEventListener("click", () => show(at - 1));
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") show(at + 1);
+  if (e.key === "ArrowLeft") show(at - 1);
+});
+show(byName[location.hash.slice(1)] ?? 0);
+</script>
+</body>
+</html>

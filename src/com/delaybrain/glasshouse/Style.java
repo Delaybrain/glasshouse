@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 // One set of sizes and colours for every screen (home screen, menus, Control Center, screensaver), at
 // 1920x1080: each screen scales them to the TV with its own px(). From the design in Desing/TV-Launcher

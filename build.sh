@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds out/tvhome.apk. Needs Java 17 and the Android SDK (platform 34, build-tools 34).
+# Builds out/glasshouse.apk. Needs Java 17 and the Android SDK (platform 34, build-tools 34).
 #   macOS:  brew install openjdk@17 && brew install --cask android-commandlinetools
 #           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 # Use a different app list with: APPS=my-apps.txt sh build.sh
@@ -13,15 +13,15 @@ SDK=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 BT=$SDK/build-tools/34.0.0; JAR=$SDK/platforms/android-34/android.jar
 [ -f "$JAR" ] && [ -d "$BT" ] || { echo "Android SDK not found. Set ANDROID_HOME, and install platforms;android-34 and build-tools;34.0.0." >&2; exit 1; }
 
-rm -rf out; mkdir -p out/classes out/dex out/gen/com/ansub/tvhome
+rm -rf out; mkdir -p out/classes out/dex out/gen/com/delaybrain/glasshouse
 
 # Turn the app list into Apps.java.
 {
-  echo "package com.ansub.tvhome;"
+  echo "package com.delaybrain.glasshouse;"
   echo "final class Apps { static final String[] LIST = {"
   grep -v '^[[:space:]]*#' "${APPS:-apps.txt}" | tr -d ' \t\r' | grep -v '^$' | sed 's/.*/    "&",/'
   echo "}; }"
-} > out/gen/com/ansub/tvhome/Apps.java
+} > out/gen/com/delaybrain/glasshouse/Apps.java
 
 # The only resource is HomeGuard's accessibility config in res/xml.
 "$BT/aapt2" compile --dir res -o out/res.zip
@@ -40,5 +40,5 @@ cp out/base.apk out/unsigned.apk; (cd out/dex && zip -q ../unsigned.apk classes.
 KS=${KEYSTORE:-key.jks}; PASS=${KEYSTORE_PASS:-tvhome123}
 [ -f "$KS" ] || keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias tvhome \
   -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=tvhome" >/dev/null 2>&1
-"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --out out/tvhome.apk out/aligned.apk
-echo "Built out/tvhome.apk"
+"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --out out/glasshouse.apk out/aligned.apk
+echo "Built out/glasshouse.apk"

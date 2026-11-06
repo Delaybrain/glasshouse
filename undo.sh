@@ -37,7 +37,7 @@ turn_on() {
 
 # Turn back on whatever install.sh turned off, before removing this home screen.
 # END marks a full read; no list at all is fine.
-LIST=/data/local/tmp/tvhome-disabled.txt
+LIST=/data/local/tmp/glasshouse-disabled.txt
 list=$(adb -s "$TV" shell "if [ -e $LIST ]; then cat $LIST && echo END; else echo END; fi" 2>/dev/null) || list=
 list=$(printf '%s\n' "$list" | tr -d '\r')
 case "$list" in
@@ -62,7 +62,7 @@ fi
 # In the same argument as rm, like the read above: Git Bash on Windows turns an argument that starts with / into a Windows path.
 adb -s "$TV" shell "rm -f $LIST"
 sh "$(dirname "$0")/homeguard.sh" "$TV" off >/dev/null 2>&1 || true
-adb -s "$TV" shell settings delete secure tvhome_homeguard >/dev/null 2>&1 || true # its marker, no longer needed
-adb -s "$TV" uninstall com.ansub.tvhome >/dev/null 2>&1 || true
+adb -s "$TV" shell settings delete secure glasshouse_homeguard >/dev/null 2>&1 || true # its marker, no longer needed
+adb -s "$TV" uninstall com.delaybrain.glasshouse >/dev/null 2>&1 || true
 adb -s "$TV" shell input keyevent KEYCODE_HOME
 echo "Removed. Your TV is back to its own home screen."

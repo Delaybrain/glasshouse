@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.content.Context;
 import android.media.tv.TvContract;

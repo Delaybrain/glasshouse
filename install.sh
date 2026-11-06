@@ -8,7 +8,7 @@
 # On Google TV (Chromecast with Google TV and others) the TV's own home screen is left on.
 # GOOGLE_TV=1 turns it off anyway; only do that if you can reconnect over USB or port 5555.
 #
-# Uses out/tvhome.apk if you built it, otherwise downloads the latest release.
+# Uses out/glasshouse.apk if you built it, otherwise downloads the latest release.
 set -e
 cd "$(dirname "$0")"
 
@@ -35,18 +35,18 @@ case "$state" in
   *) echo "Can't reach $TV. Check the TV is on, on the same Wi-Fi, and has USB/network debugging turned on." >&2; exit 1 ;;
 esac
 
-APK=out/tvhome.apk
+APK=out/glasshouse.apk
 if [ ! -f "$APK" ]; then
-  APK=$(mktemp -d)/tvhome.apk
+  APK=$(mktemp -d)/glasshouse.apk
   echo "Downloading the home screen…"
-  curl -fsSL -o "$APK" https://github.com/Ansub/tv-detox/releases/latest/download/tvhome.apk
+  curl -fsSL -o "$APK" https://github.com/Delaybrain/glasshouse/releases/latest/download/glasshouse.apk
 fi
 
 echo "Installing… If your TV shows a Google Play Protect message, follow it on the TV to allow the install."
 if ! out=$(adb -s "$TV" install -r "$APK" 2>&1); then
   case "$out" in
     *UPDATE_INCOMPATIBLE*) echo "Replacing an older copy signed with a different key…"
-                           adb -s "$TV" uninstall com.ansub.tvhome >/dev/null; adb -s "$TV" install "$APK" ;;
+                           adb -s "$TV" uninstall com.delaybrain.glasshouse >/dev/null; adb -s "$TV" install "$APK" ;;
     *) echo "$out" >&2; exit 1 ;;
   esac
 fi
@@ -56,17 +56,17 @@ if [ -n "$APPS" ] || [ -n "$QUICK" ]; then
   set -- --es stamp "$(date +%s)"
   [ -n "$APPS" ] && set -- "$@" --es apps "\"$APPS\""
   [ -n "$QUICK" ] && set -- "$@" --es quick "\"$QUICK\""
-  adb -s "$TV" shell am start -n com.ansub.tvhome/.MainActivity "$@" >/dev/null
+  adb -s "$TV" shell am start -n com.delaybrain.glasshouse/.MainActivity "$@" >/dev/null
 fi
 
-ME=com.ansub.tvhome/.MainActivity
+ME=com.delaybrain.glasshouse/.MainActivity
 # Keeps adb's exit status, so a failed command on the TV counts as failed here.
 sh_tv() { _rc=0; _out=$(adb -s "$TV" shell "$@") || _rc=$?; [ -z "$_out" ] || printf '%s\n' "$_out" | tr -d '\r'; return $_rc; }
 current_home() { sh_tv cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME | tail -1; }
 
 # Make it the default home: the role (Android 10+) and the classic way.
 if [ "$(sh_tv getprop ro.build.version.sdk)" -ge 29 ]; then
-  sh_tv cmd role add-role-holder --user 0 android.app.role.HOME com.ansub.tvhome >/dev/null 2>&1 || true
+  sh_tv cmd role add-role-holder --user 0 android.app.role.HOME com.delaybrain.glasshouse >/dev/null 2>&1 || true
 fi
 sh_tv cmd package set-home-activity "$ME" >/dev/null 2>&1 || true
 
@@ -78,7 +78,7 @@ LAUNCHERS="com.google.android.tvlauncher com.google.android.apps.tv.launcherx co
 # the TV needs them to start, so they, unknown apps and anything always running stay on.
 is_launcher() {
   case "$1" in
-    com.ansub.tvhome|com.android.settings|com.android.tv.settings|com.android.systemui|com.android.provision) return 1 ;;
+    com.delaybrain.glasshouse|com.android.settings|com.android.tv.settings|com.android.systemui|com.android.provision) return 1 ;;
     *setup*|*wraith*|*provision*|*systemui*|*tvcenter*|*.tv.framework*|*.tvinput*) return 1 ;;
   esac
   case " $(echo $LAUNCHERS) " in *" $1 "*) ;; *) return 1 ;; esac
@@ -95,7 +95,7 @@ is_off() { sh_tv pm list packages -d "$1" | grep -Fqx "package:$1"; }
 # turn it back on. If it can't be saved, it's left on.
 turn_off() {
   for p in "$@"; do
-    if ! sh_tv "echo $p >> /data/local/tmp/tvhome-disabled.txt"; then
+    if ! sh_tv "echo $p >> /data/local/tmp/glasshouse-disabled.txt"; then
       echo "Leaving $p on: couldn't save it for undo.sh." >&2; continue
     fi
     sh_tv pm disable-user --user 0 "$p" >/dev/null 2>&1 || true
@@ -137,7 +137,7 @@ if [ -n "$may_turn_off" ] && [ "$(current_home)" != "$ME" ]; then
   others=""
   for p in $(home_apps); do
     if is_launcher "$p"; then others="$others $p"; continue; fi
-    case "$p" in com.ansub.tvhome|com.android.settings|com.android.tv.settings|"$WRAITH") ;; *) echo "Leaving $p on: it may be needed for your TV to start." ;; esac
+    case "$p" in com.delaybrain.glasshouse|com.android.settings|com.android.tv.settings|"$WRAITH") ;; *) echo "Leaving $p on: it may be needed for your TV to start." ;; esac
   done
   others=$(echo $others | tr ' ' '\n')
   if [ -n "$others" ]; then
@@ -206,7 +206,7 @@ if [ -n "$turned_off" ] && [ "$winner" != "$ME" ]; then
     elif printf '%s\n' "$state" | grep -Fqx "package:$p"; then
       echo "Couldn't turn $p back on. Run undo.sh." >&2; revert_failed=1; continue
     fi
-    sh_tv "sed -i '/^$p\$/d' /data/local/tmp/tvhome-disabled.txt" \
+    sh_tv "sed -i '/^$p\$/d' /data/local/tmp/glasshouse-disabled.txt" \
       || echo "Couldn't update the undo list for $p. undo.sh will just turn it on again." >&2
     # Google TV's home screen can come back without its notification access (#16).
     [ "$p" = "$LAUNCHERX" ] && sh_tv cmd notification allow_listener \
@@ -220,11 +220,20 @@ if [ -n "$turned_off" ] && [ "$winner" != "$ME" ]; then
   fi
 fi
 
+# The extras. Each one the TV refuses only leaves that feature off; undo.sh takes them away with the app.
+P=com.delaybrain.glasshouse
+sh_tv appops set $P GET_USAGE_STATS allow >/dev/null 2>&1 || true  # "last opened", Home back on the app you left, Home held
+sh_tv pm grant $P android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 || true  # sleep row; HomeGuard puts itself back
+sh_tv appops set $P WRITE_SETTINGS allow >/dev/null 2>&1 || true  # Control Center's screensaver row
+sh_tv pm grant $P android.permission.BLUETOOTH_CONNECT >/dev/null 2>&1 || true  # Control Center's Bluetooth row
+sh_tv settings put secure screensaver_components $P/.Screensaver >/dev/null 2>&1 || true
+sh homeguard.sh "$TV" on >/dev/null 2>&1 || echo "HomeGuard (Home, settings and other buttons) couldn't be turned on: run sh homeguard.sh $TARGET on" >&2
+
 adb -s "$TV" shell input keyevent KEYCODE_HOME
 if [ "$(current_home)" = "$ME" ]; then
   echo "Done. Press Home on your remote to see it."
 elif [ -n "$reverted" ]; then
   echo "Installed, but your TV's own home screen still opens when you press Home."
 else
-  echo "Installed, but your TV still opens its own home screen. If it asks which home screen to use, pick \"Home\" and choose Always."
+  echo "Installed, but your TV still opens its own home screen. If it asks which home screen to use, pick \"Glasshouse\" and choose Always."
 fi

@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -94,7 +94,7 @@ final class TimeoutGuard extends ContentObserver {
     }
 
     // One line per change, newest last; started over when it gets long. Read it with:
-    // adb shell cat /sdcard/Android/data/com.ansub.tvhome/files/timeouts.log
+    // adb shell cat /sdcard/Android/data/com.delaybrain.glasshouse/files/timeouts.log
     private void log(String line) {
         File dir = context.getExternalFilesDir(null);
         if (dir == null) return;

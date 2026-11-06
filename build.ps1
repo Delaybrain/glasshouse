@@ -1,4 +1,4 @@
-# Builds out\tvhome.apk on Windows. The same steps as build.sh, without needing zip or bash.
+# Builds out\glasshouse.apk on Windows. The same steps as build.sh, without needing zip or bash.
 # Needs Java 17 and the Android SDK (platform 34, build-tools 34). setup-tools.ps1 puts both in .\tools.
 #   powershell -ExecutionPolicy Bypass -File build.ps1
 # Use a different app list with:  $env:APPS = "my-apps.txt"
@@ -28,15 +28,15 @@ function Run($exe, [string[]]$argv) {
 }
 
 if (Test-Path out) { Remove-Item out -Recurse -Force }
-New-Item -ItemType Directory -Force out\classes, out\dex, out\gen\com\ansub\tvhome | Out-Null
+New-Item -ItemType Directory -Force out\classes, out\dex, out\gen\com\delaybrain\glasshouse | Out-Null
 
 # Turn the app list into Apps.java.
 $list = if ($env:APPS) { $env:APPS } else { "apps.txt" }
 $apps = Get-Content $list | Where-Object { $_ -notmatch '^\s*#' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-$java = @("package com.ansub.tvhome;", "final class Apps { static final String[] LIST = {")
+$java = @("package com.delaybrain.glasshouse;", "final class Apps { static final String[] LIST = {")
 $java += $apps | ForEach-Object { "    `"$_`"," }
 $java += "}; }"
-[IO.File]::WriteAllLines("$PSScriptRoot\out\gen\com\ansub\tvhome\Apps.java", $java)
+[IO.File]::WriteAllLines("$PSScriptRoot\out\gen\com\delaybrain\glasshouse\Apps.java", $java)
 
 # The only resource is HomeGuard's accessibility config in res\xml.
 Run "$bt\aapt2.exe" @("compile", "--dir", "res", "-o", "out\res.zip")
@@ -66,5 +66,5 @@ if (-not (Test-Path $ks)) {
     Run "keytool" @("-genkeypair", "-keystore", $ks, "-storepass", $pass, "-keypass", $pass, "-alias", "tvhome",
         "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-dname", "CN=tvhome")
 }
-Run "$bt\apksigner.bat" @("sign", "--ks", $ks, "--ks-pass", "pass:$pass", "--out", "out\tvhome.apk", "out\aligned.apk")
-Write-Host "Built out\tvhome.apk"
+Run "$bt\apksigner.bat" @("sign", "--ks", $ks, "--ks-pass", "pass:$pass", "--out", "out\glasshouse.apk", "out\aligned.apk")
+Write-Host "Built out\glasshouse.apk"

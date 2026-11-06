@@ -1,6 +1,6 @@
 # Cleaning your TV safely
 
-TV Detox does two jobs. The home screen is automatic. Turning off the junk is a judgement
+Glasshouse does two jobs. The home screen is automatic. Turning off the junk is a judgement
 call for every app, so it is left to whoever is driving the setup. This page is that
 judgement, plus the rules that keep it reversible.
 

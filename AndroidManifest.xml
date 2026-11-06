@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ansub.tvhome" android:versionCode="16" android:versionName="1.5.3-tvos">
+    package="com.delaybrain.glasshouse" android:versionCode="17" android:versionName="1.0.0">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <!-- Only for the network tile: Wi-Fi, Ethernet or offline, and the Wi-Fi signal. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -37,12 +37,12 @@
     <!-- Android 12+: the Bluetooth shortcut and Control Center open the TV's pairing screen, which needs it. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- The recent row under the top shelf: which apps were used last. Granted over adb only:
-         adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow -->
+         adb shell appops set com.delaybrain.glasshouse GET_USAGE_STATS allow -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <!-- The sleep setting in Control Center. Granted over adb only, never at install; without it the
-         row isn't there: adb shell pm grant com.ansub.tvhome android.permission.WRITE_SECURE_SETTINGS -->
+         row isn't there: adb shell pm grant com.delaybrain.glasshouse android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-    <!-- The screensaver wait in Control Center: adb shell appops set com.ansub.tvhome WRITE_SETTINGS allow -->
+    <!-- The screensaver wait in Control Center: adb shell appops set com.delaybrain.glasshouse WRITE_SETTINGS allow -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
@@ -53,7 +53,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
-    <application android:label="Home" android:allowBackup="false"
+    <application android:label="Glasshouse" android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <activity android:name=".MainActivity"
             android:exported="true"
@@ -72,16 +72,16 @@
         <activity android:name=".ControlCenter"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
-            android:taskAffinity="com.ansub.tvhome.control"
+            android:taskAffinity="com.delaybrain.glasshouse.control"
             android:excludeFromRecents="true"
             android:launchMode="singleTask" />
         <!-- The screensaver: pick it in Settings > System > Ambient mode, or with
-             adb shell settings put secure screensaver_components com.ansub.tvhome/.Screensaver -->
+             adb shell settings put secure screensaver_components com.delaybrain.glasshouse/.Screensaver -->
         <activity android:name=".SaverPreview"
             android:exported="false"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <service android:name=".Screensaver"
-            android:label="Home: Uhr"
+            android:label="Glasshouse"
             android:exported="true"
             android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
@@ -91,7 +91,7 @@
         </service>
         <!-- Off until turned on (homeguard.sh): brings this home screen up over Google TV's. -->
         <service android:name=".HomeGuard"
-            android:label="Home: Home-Taste"
+            android:label="Glasshouse: remote buttons"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

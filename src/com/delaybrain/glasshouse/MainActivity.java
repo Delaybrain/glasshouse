@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -61,7 +61,7 @@ import java.util.List;
 public class MainActivity extends Activity {
 
     // Top-row apps, in this order of preference:
-    //  1. a list saved at install time:  am start -n com.ansub.tvhome/.MainActivity --es apps "pkg1,pkg2"
+    //  1. a list saved at install time:  am start -n com.delaybrain.glasshouse/.MainActivity --es apps "pkg1,pkg2"
     //     (--es apps auto  goes back to 2; add --es stamp <unique> so it's applied only once, see saveConfig)
     //  2. apps.txt (built in as Apps.LIST), topped up with other TV apps installed on this TV.
     // Missing apps are skipped. Topping up stops at six apps, but a chosen list can be any length:
@@ -721,11 +721,11 @@ public class MainActivity extends Activity {
     // Android drops HomeGuard from the accessibility services whenever this app is stopped (an update,
     // a force stop), and then Home, Settings and the other buttons quietly stop working. With
     // WRITE_SECURE_SETTINGS (granted over adb) the home screen puts it back each time it comes up,
-    // unless homeguard.sh turned it off on purpose (it leaves tvhome_homeguard=off for that).
+    // unless homeguard.sh turned it off on purpose (it leaves glasshouse_homeguard=off for that).
     private void keepHomeGuardOn() {
         if (checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != PackageManager.PERMISSION_GRANTED) return;
         android.content.ContentResolver cr = getContentResolver();
-        if ("off".equals(Settings.Secure.getString(cr, "tvhome_homeguard"))) return;
+        if ("off".equals(Settings.Secure.getString(cr, "glasshouse_homeguard"))) return;
         String me = getPackageName() + "/.HomeGuard"; // the short form homeguard.sh and check.sh use
         String now = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
         String list = ":" + now + ":";
@@ -739,7 +739,7 @@ public class MainActivity extends Activity {
     }
 
     // When each app was last open, from Android's usage stats (allowed with:
-    // adb shell appops set com.ansub.tvhome GET_USAGE_STATS allow). Without that permission nothing is
+    // adb shell appops set com.delaybrain.glasshouse GET_USAGE_STATS allow). Without that permission nothing is
     // known, and the shelf just shows the app's name.
     private void refreshRecents() {
         lastUsed.clear();
@@ -2178,7 +2178,7 @@ public class MainActivity extends Activity {
 
     // ---- Back up & restore ----
 
-    private static final String BACKUP_FILE = "tvhome-backup.json";
+    private static final String BACKUP_FILE = "glasshouse-backup.json";
 
     private void showBackup() {
         panel(Strings.t("Back up & restore"), Arrays.asList(Strings.t("Back up now"), Strings.t("Restore"),

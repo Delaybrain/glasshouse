@@ -1,4 +1,4 @@
-package com.ansub.tvhome;
+package com.delaybrain.glasshouse;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -60,7 +60,7 @@ final class KidLock {
 
     private static String hash(String pin) {
         try {
-            byte[] d = MessageDigest.getInstance("SHA-256").digest(("tvhome:" + pin).getBytes("UTF-8"));
+            byte[] d = MessageDigest.getInstance("SHA-256").digest(("glasshouse:" + pin).getBytes("UTF-8"));
             StringBuilder s = new StringBuilder();
             for (byte b : d) s.append(String.format("%02x", b));
             return s.toString();
