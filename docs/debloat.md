@@ -55,6 +55,13 @@ Casting is not one app you can spot by name. On Google TV the receiver is
 video from your phone and confirm the TV still shows up. If it does not, `pm enable
 com.google.android.apps.mediashell` and reboot. On a TV that never casts, it is safe off.
 
+Without it the TV is simply missing when you tap the cast button in YouTube, Netflix or another
+app on your phone. Keeping it costs little: on the tested PEAQ (1.9 GB RAM) its one process takes
+about 25 MB of memory (PSS; 90 MB counting shared libraries) and, while nothing is cast, under 0.1 %
+of one CPU core. It starts when the TV starts, so after turning it back on, restart the TV once.
+For YouTube alone there is a way without it: in YouTube on the TV, *Settings → Link with TV code*,
+and on the phone *Settings → Watch on TV → Enter TV code*.
+
 ## A package name is not always the app
 
 A package name doesn't always say what the app is. Prime Video, for example, installs as
@@ -134,7 +141,7 @@ Turn these off only if you do not use the feature:
 
 | package | feature |
 | --- | --- |
-| `com.google.android.apps.mediashell` | casting from your phone |
+| `com.google.android.apps.mediashell` | casting from your phone (about 25 MB of memory, no CPU while idle) |
 | `com.google.android.katniss` | Google TV search and voice |
 | `com.google.android.tv.assistant` | Google Assistant |
 | `com.google.android.marvin.talkback` | TalkBack screen reader |

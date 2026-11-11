@@ -199,6 +199,16 @@ Glasshouse started as part of making a slow TV fast again. [docs/debloat.md](doc
 - **What apps can't do:** "Continue watching" rows from Netflix and others, CPU use in percent, and temperatures are closed to apps on Android TV. Glasshouse shows what it can (CPU speed, RAM).
 - **Privacy:** nothing leaves your home network. The photo web server runs only while its card is open and takes only pictures or a backup.
 
+## Roadmap
+
+What's planned, roughly in this order. What changed so far is in the [changelog](CHANGELOG.md).
+
+- **Measured against other home screens:** the same test (smoothness, start time, memory) for Google TV's home screen and other launchers, as a table here.
+- **More TVs tested:** runs on yours? Tell us with the [device report](https://github.com/Delaybrain/glasshouse/issues/new?template=device.yml), it goes into a list here.
+- **Updates from the TV:** Glasshouse tells you when a new version is out. Only once remote buttons have been proven on more remotes, so an update never surprises a setup that works.
+
+Ideas and bugs: [open an issue](https://github.com/Delaybrain/glasshouse/issues/new/choose).
+
 ## Disclaimer
 
 Glasshouse and its scripts are provided "as is", without warranty of any kind. You use them at your own risk and are responsible for what you run on your TV. The authors and contributors are not liable for any damage, data loss, broken or unusable devices, lost warranty, or other harm arising from using them, as far as the law allows. Nothing here is support from, or approved by, your TV's maker or Google. If you're not comfortable fixing a TV that won't start (adb, factory reset), don't turn off system apps. The full terms are in the [LICENSE](LICENSE).

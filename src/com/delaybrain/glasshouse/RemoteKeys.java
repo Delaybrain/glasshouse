@@ -108,8 +108,19 @@ final class RemoteKeys {
         }
     }
 
-    // A button's name as Android calls it: KEYCODE_PROG_RED is "Prog red".
+    // The names of the usual remote buttons, by what they look like, in the TV's language (Strings).
+    private static final int[] NAMED = {KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_ALL_APPS, KeyEvent.KEYCODE_SETTINGS,
+            KeyEvent.KEYCODE_NOTIFICATION, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_PROFILE_SWITCH, KeyEvent.KEYCODE_MENU,
+            KeyEvent.KEYCODE_PROG_RED, KeyEvent.KEYCODE_PROG_GREEN, KeyEvent.KEYCODE_PROG_YELLOW, KeyEvent.KEYCODE_PROG_BLUE,
+            KeyEvent.KEYCODE_TV_INPUT, KeyEvent.KEYCODE_TV, KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_CAPTIONS,
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE};
+    private static final String[] NAMED_AS = {"Home button", "Apps button", "Gear", "Notifications button", "Guide button",
+            "Person button", "Menu button", "Red button", "Green button", "Yellow button", "Blue button", "Input button",
+            "TV button", "Info button", "Subtitles button", "Play/Pause"};
+
+    // A button's name: the usual ones as above, any other as Android calls it (KEYCODE_BUTTON_5 is "Button 5").
     static String name(int code) {
+        for (int i = 0; i < NAMED.length; i++) if (NAMED[i] == code) return Strings.t(NAMED_AS[i]);
         String s = KeyEvent.keyCodeToString(code);
         if (s.startsWith("KEYCODE_")) s = s.substring(8);
         s = s.replace('_', ' ').toLowerCase(java.util.Locale.ROOT);

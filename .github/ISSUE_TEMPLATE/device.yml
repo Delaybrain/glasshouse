@@ -1,0 +1,53 @@
+name: Runs on my TV
+description: Tell us which TV or box Glasshouse runs on, and how well.
+title: "Device: "
+labels: ["device report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Every report helps the next person with the same TV. Find the details under the TV's
+        Settings → System → About, or with `adb shell getprop ro.product.model`.
+  - type: input
+    id: model
+    attributes:
+      label: TV or box
+      description: Brand and exact model.
+      placeholder: PEAQ 65GQU-5024C
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      placeholder: Android 14 (Google TV)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Glasshouse version
+      description: The release you installed, or "built from source" with the commit.
+      placeholder: 1.1.1
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How does it run?
+      options:
+        - Everything works
+        - Works, with small problems (below)
+        - Doesn't work (below)
+    validations:
+      required: true
+  - type: textarea
+    id: remote
+    attributes:
+      label: Remote
+      description: Which remote, and which buttons you had to set under Settings → Remote buttons (if any).
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: What didn't work, what you turned off, screenshots.

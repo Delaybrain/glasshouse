@@ -68,14 +68,14 @@ tap() {
 row() { ui | tr '>' '\n' | grep -o "text=\"$1[^\"]*\"" | head -1; }
 adb -s "$TV" shell am start -n com.delaybrain.glasshouse/.MainActivity --es show remote >/dev/null; sleep 2
 row "Remote buttons" | grep -q . || fail "no Remote buttons panel"
-row "Home  ·  " | grep -q 'Home  ·  Home"' || fail "Home doesn't start on the standard button: $(row 'Home  ·  ')"
+row "Home  ·  " | grep -q 'Home  ·  Home button"' || fail "Home doesn't start on the standard button: $(row 'Home  ·  ')"
 tap "Home  ·  "
 row "Press the button now" | grep -q . || fail "no wait for a button"
 adb -s "$TV" shell input keyevent KEYCODE_PROG_RED; sleep 2
-row "Home  ·  " | grep -q 'Home  ·  Home, Prog red"' || fail "red button not set: $(row 'Home  ·  ')"
+row "Home  ·  " | grep -q 'Home  ·  Home button, Red button"' || fail "red button not set: $(row 'Home  ·  ')"
 tap "Reset to standard"
 tap 'Reset"'; sleep 1  # the question before it: Reset, not Cancel
-row "Home  ·  " | grep -q 'Home  ·  Home"' || fail "standard buttons not back: $(row 'Home  ·  ')"
+row "Home  ·  " | grep -q 'Home  ·  Home button"' || fail "standard buttons not back: $(row 'Home  ·  ')"
 adb -s "$TV" shell input keyevent KEYCODE_BACK
 echo "   set and reset"
 

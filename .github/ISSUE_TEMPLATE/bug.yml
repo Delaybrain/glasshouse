@@ -1,0 +1,34 @@
+name: Something doesn't work
+description: A bug in Glasshouse or one of the scripts.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: TV or box, and Android version
+      placeholder: PEAQ 65GQU-5024C, Android 14
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Glasshouse version
+      placeholder: 1.1.1
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log (if you can)
+      description: |
+        Right after it happened: `adb logcat -d -b crash` and `adb logcat -d | grep -i glasshouse`.
+        Check it for anything private before you post it.
+      render: text
