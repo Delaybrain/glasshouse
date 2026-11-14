@@ -61,8 +61,7 @@ Run "$bt\zipalign.exe" @("-f", "4", "out\unsigned.apk", "out\aligned.apk")
 
 # A signing key is made on first build. Keep key.jks and key.pass: updates must be signed with the same key.
 $ks = if ($env:KEYSTORE) { $env:KEYSTORE } else { "key.jks" }
-# The key's password: KEYSTORE_PASS, else key.pass (made with a new key, kept out of git), else the
-# old default of keys made before key.pass.
+# The key's password: KEYSTORE_PASS, else key.pass (made with a new key, kept out of git).
 if (-not $env:KEYSTORE_PASS -and -not (Test-Path $ks) -and -not (Test-Path "key.pass")) {
     $bytes = New-Object byte[] 24
     [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
@@ -70,7 +69,7 @@ if (-not $env:KEYSTORE_PASS -and -not (Test-Path $ks) -and -not (Test-Path "key.
 }
 $pass = if ($env:KEYSTORE_PASS) { $env:KEYSTORE_PASS }
         elseif (Test-Path "key.pass") { (Get-Content "key.pass" -Raw).Trim() }
-        else { "tvhome123" }
+        else { throw "$ks has no key.pass. Write its password into key.pass (one line), or set KEYSTORE_PASS." }
 if (-not (Test-Path $ks)) {
     Run "keytool" @("-genkeypair", "-keystore", $ks, "-storepass", $pass, "-keypass", $pass, "-alias", "tvhome",
         "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-dname", "CN=tvhome")

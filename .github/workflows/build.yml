@@ -33,7 +33,7 @@ jobs:
       - name: Build
         env:
           KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' && 'release.jks' || 'key.jks' }}
-          KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS || 'tvhome123' }}
+          KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS }}  # empty in a fork: build.sh makes a new key
         run: sh build.sh
       - uses: actions/upload-artifact@v4
         with:
