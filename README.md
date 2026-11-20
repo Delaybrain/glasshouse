@@ -23,7 +23,8 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 ## What you get
 
 - **Your apps on a glass dock.** The big picture and name at the top follow the focus. The row scrolls past six apps and wraps round. Hold OK on an app to move, replace or remove it.
-- **HDMI inputs that know what's plugged in.** A dot for a device that's on (over HDMI-CEC), and a live preview behind the page while an input is focused.
+- **HDMI inputs that know what's plugged in.** A dot for a device that's on (over HDMI-CEC, or a picture seen lately, for a PC), and a live preview behind the page while an input is focused. Give each input a name and an icon (PC, game console...).
+- **Its own HDMI player**, if you like (Settings → HDMI inputs): the input full screen with a glass badge, a glass card when there's no signal, and a strip to switch inputs, instead of the TV's player.
 - **Glass panels.** Menus, panels and Control Center float on a blurred copy of the page, with a tint that adapts so every panel is equally bright, and a rim that catches the light. All drawn once, never per frame.
 - **Seven tile looks.** Original, dark, light, glass, black & white, spotlight, or light by day and dark at night. Banners on white or black get their background turned round, brand colours optionally too.
 - **Status bar you choose.** Clock, network (Wi-Fi bars or a cable), date, CPU speed, RAM, download speed, off timer.
@@ -45,13 +46,18 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 <img src="docs/shots/06-switcher.jpg" width="49%" alt="Hold Home: recently used apps">
 <img src="docs/shots/15-remote-buttons.jpg" width="49%" alt="Remote buttons, with a card that shows how">
 <img src="docs/shots/16-photo-position.jpg" width="49%" alt="Photo position: a 4:3 photo shown whole">
+<img src="docs/shots/19-hdmi-player.jpg" width="49%" alt="Glasshouse's HDMI player with its badge and input strip (mock-up)">
+<img src="docs/shots/20-hdmi-names.jpg" width="49%" alt="Names and icons for HDMI inputs">
 </p>
 
-<sub>The HDMI picture is a mock-up (a real screenshot with a drawn PC desktop behind it): the TV blocks screenshots while a live picture plays. All other pictures are real screenshots.</sub>
+<sub>The two HDMI pictures are mock-ups (a drawn PC desktop, with the home screen or the player's glass as Glasshouse draws them): the TV blocks screenshots while a live picture plays. All other pictures are real screenshots.</sub>
 
 ## Fast on a slow TV
 
-Measured on the PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), against Google TV's own home screen on the same TV, the same day. Each got the same 288 arrow presses along its first row (12 times right and left), measured with Android's `dumpsys gfxinfo`. Google TV's home screen was turned on just for this, on the already cleaned-up TV: the other apps stayed off and animations stayed short, which helps it too. On a TV as it comes from the shop it has more running beside it, so the gap is likely bigger than this.
+Measured on the PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), against Google TV's own home screen on the same TV, the same day. Each got the same 288 arrow presses along its first row (12 times right and left), measured with Android's `dumpsys gfxinfo`.
+
+> [!NOTE]
+> **This is not a test against a TV as it comes from the shop.** Only Google TV's home screen was turned back on for it, on the already cleaned-up TV: the other apps Glasshouse's cleanup turns off stayed off, and animations stayed short. That helps Google TV's home screen as much as Glasshouse. On a stock TV, with everything running beside it and full animations, its numbers would be worse, so the real difference is bigger than the table shows.
 
 | | Glasshouse | Google TV's home screen |
 |---|---|---|

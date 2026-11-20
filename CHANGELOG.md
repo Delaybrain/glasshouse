@@ -3,6 +3,20 @@
 What changed in each release. The APKs are in [Releases](https://github.com/Delaybrain/glasshouse/releases);
 plans are in the README's [Roadmap](README.md#roadmap).
 
+## 1.2.0 (2026-11-20)
+
+- **An HDMI player in Glasshouse's look**, if you turn it on (Settings → HDMI inputs; off until you
+  do, so an update changes nothing). OK on an HDMI pill shows the input full screen with a glass
+  badge (input, resolution, refresh rate), a glass card when there's no signal (with the inputs that
+  have something on, and the TV goes to standby after 10 minutes without one), and Back brings up a
+  strip of all inputs. The TV still does the picture itself.
+- **Names and icons for HDMI inputs:** PC, laptop, game console, TV box, Blu-ray player, receiver or
+  camera, a name of your own, or the TV's name again.
+- **Lighter over a live picture:** the home screen over the HDMI preview is no longer almost black at
+  the bottom, and a PC's green dot is shared between the preview and the player.
+- **Measured against Google TV's home screen** on the same TV: 0.4 % janky frames against 21 %, with
+  less memory. See the README for how, and why the real difference is bigger.
+
 ## 1.1.1 (2026-11-11)
 
 - **Remote buttons by their names.** Settings → Remote buttons says *Gear*, *Person button* or
