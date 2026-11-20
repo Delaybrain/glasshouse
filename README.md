@@ -51,7 +51,7 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 
 ## Fast on a slow TV
 
-Measured on the PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), against Google TV's own home screen on the same TV, the same day. Each got the same 288 arrow presses along its first row (12 times right and left), measured with Android's `dumpsys gfxinfo`:
+Measured on the PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), against Google TV's own home screen on the same TV, the same day. Each got the same 288 arrow presses along its first row (12 times right and left), measured with Android's `dumpsys gfxinfo`. Google TV's home screen was turned on just for this, on the already cleaned-up TV: the other apps stayed off and animations stayed short, which helps it too. On a TV as it comes from the shop it has more running beside it, so the gap is likely bigger than this.
 
 | | Glasshouse | Google TV's home screen |
 |---|---|---|
