@@ -51,14 +51,17 @@ Built and tuned on a 1.9 GB Google TV, where the stock home screen had become pa
 
 ## Fast on a slow TV
 
-Measured on a PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), 150 presses along the app row:
+Measured on the PEAQ 65GQU (MediaTek, 1.9 GB RAM, Android 14), against Google TV's own home screen on the same TV, the same day. Each got the same 288 arrow presses along its first row (12 times right and left), measured with Android's `dumpsys gfxinfo`:
 
-| | |
-|---|---|
-| Janky frames | 0.85 % |
-| 99th percentile frame | 38 ms |
-| Memory (PSS) | about 70 MB |
-| CPU while idle | about 1 % (the status bar's two-second update) |
+| | Glasshouse | Google TV's home screen |
+|---|---|---|
+| Janky frames | **0.4 %** | 21 % |
+| Frame times, 50th / 90th / 99th percentile | 27 / 28 / 36–42 ms | 31 / 40 / 48 ms |
+| Memory (PSS) | 75–100 MB | 143 MB |
+| Start to the first picture | 1.2 s | 0.6 s, its rows load after that |
+| CPU while idle | about 1 % (the status bar's two-second update) | |
+
+Glasshouse stays at 0.4 % after a big app like YouTube, too. Other home screens (Projectivy, FLauncher) aren't measured yet, see the [roadmap](#roadmap).
 
 How: the wallpaper and glass are drawn into bitmaps once, there are no elevation shadows or live blurs, banners and their washes are cached, and status text has fixed sizes so updates never lay out the page.
 
@@ -203,7 +206,8 @@ Glasshouse started as part of making a slow TV fast again. [docs/debloat.md](doc
 
 What's planned, roughly in this order. What changed so far is in the [changelog](CHANGELOG.md).
 
-- **Measured against other home screens:** the same test (smoothness, start time, memory) for Google TV's home screen and other launchers, as a table here.
+- **Measured against more home screens:** Google TV's is in the table above; Projectivy and FLauncher next, with the same test. And a check in CI that fails when a change makes Glasshouse slower.
+- **A faster start:** 1.2 s to the first picture, where Google TV's home screen shows its first one after 0.6 s.
 - **More TVs tested:** runs on yours? Tell us with the [device report](https://github.com/Delaybrain/glasshouse/issues/new?template=device.yml), it goes into a list here.
 - **Updates from the TV:** Glasshouse tells you when a new version is out. Only once remote buttons have been proven on more remotes, so an update never surprises a setup that works.
 
