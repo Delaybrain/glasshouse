@@ -28,6 +28,19 @@ Work down the list from the top. Turn off, wait, check the TV still works.
 `pm uninstall` on a system app cannot be undone from the TV. Everything on the TV should be
 reversible from the TV, so disable, and keep every package you touch in the undo list.
 
+**One exception: an app that keeps coming back.** Google's voice search
+(`com.google.android.katniss`) turned itself back on again and again on the tested PEAQ: the Play
+Store updates it, and something of Google's switches it on. For an app like that, take the update
+off and remove it for your user only:
+
+    adb shell pm uninstall-system-updates com.google.android.katniss
+    adb shell pm uninstall --user 0 com.google.android.katniss
+
+The factory copy stays in the system, unused, so this is still reversible from the TV:
+`adb shell cmd package install-existing com.google.android.katniss` (`restore-stock.sh` does that
+too). The Play Store no longer updates it and nothing can switch it on. `check.sh` lists it as
+"gone". Only do this with apps that keep coming back, never with anything the TV needs to start.
+
 ### 2. Never turn off what starts the TV
 
 The screen, the remote, the keyboard, the settings app and the package installer are load
@@ -86,7 +99,8 @@ boot.
 
 ## If something goes wrong
 
-- Bring one app back: `adb shell pm enable <package>`
+- Bring one app back: `adb shell pm enable <package>`, or for one removed for your user
+  `adb shell cmd package install-existing <package>`
 - Bring back the launchers `install.sh` turned off: `sh undo.sh <TV_IP>`. It only knows about
   what `install.sh` turned off. Apps you turn off by hand from this guide aren't on its list,
   so write each one down as you go, and turn them back on with `pm enable`.

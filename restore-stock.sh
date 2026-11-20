@@ -5,7 +5,8 @@
 #   sh restore-stock.sh <TV_IP> <change-list.txt>
 #   DRY=1 sh restore-stock.sh <TV_IP> <change-list.txt>    only prints what it would do
 #
-# The list is the one check.sh reads: "off <package>" lines are turned back on, and each
+# The list is the one check.sh reads: "off <package>" lines are turned back on (and put back first if
+# they were uninstalled for the user, see docs/debloat.md), and each
 # "# vorher: <global|secure|system|cec> <name> <value>" line is the value a setting had before
 # ("null" means it wasn't set at all). Nothing is uninstalled except this home screen.
 set -e
@@ -32,7 +33,7 @@ if [ -z "$DRY" ]; then
 fi
 
 echo "Apps back on:"
-grep '^off ' "$LIST" | while read -r _ pkg; do run pm enable "$pkg"; done
+grep '^off ' "$LIST" | while read -r _ pkg; do run cmd package install-existing "$pkg"; run pm enable "$pkg"; done
 
 echo "Settings back to what they were:"
 sed -n 's/^# vorher: //p' "$LIST" | while read -r kind name value; do
