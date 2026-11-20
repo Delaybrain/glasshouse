@@ -11,7 +11,7 @@ import org.json.JSONObject;
 final class Backup {
     private static final String PREFS = "config";
     private static final String[] KEYS = {"apps", "quick", "wallpaper", "tiles", "tilesBrand", "status",
-            "saver", "pin", "locked", "keys", "wallpaperFit", "saverFit"};
+            "saver", "pin", "locked", "keys", "wallpaperFit", "saverFit", "hdmiPlayer"};
 
     private Backup() {}
 

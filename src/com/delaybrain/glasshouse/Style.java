@@ -17,6 +17,9 @@ final class Style {
     // copy of the page, a gloss on the top half, and a rim lit from the top left that fades round to
     // the bottom right. Over other apps there's no copy to blur, so the tint is stronger (SOLO).
     static final int LIQUID_TINT = 0x8C14161C, LIQUID_SOLO = 0xEE14161C, LIQUID_GLOSS = 0x1AFFFFFF;
+    // Over a live HDMI picture (the HDMI player): nothing to blur either, and the picture should show
+    // through, so a light tint (the text gets a soft shadow there instead).
+    static final int LIQUID_VIDEO = 0x4D14161C;
     static final int LIQUID_RIM_HI = 0x8CFFFFFF, LIQUID_RIM_LO = 0x12FFFFFF, LIQUID_RIM_END = 0x3DFFFFFF;
     // How bright glass over the page ends up (0 black, 1 white): the tint's strength follows what's under it.
     static final double LIQUID_LEVEL = 0.20;

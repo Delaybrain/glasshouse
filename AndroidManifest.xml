@@ -82,6 +82,13 @@
             android:launchMode="singleTask" />
         <!-- The screensaver: pick it in Settings > System > Ambient mode, or with
              adb shell settings put secure screensaver_components com.delaybrain.glasshouse/.Screensaver -->
+        <!-- An HDMI input full screen in Glasshouse's look (Settings > HDMI inputs), instead of the TV's player. -->
+        <activity android:name=".InputPlayer"
+            android:exported="false"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|locale" />
         <activity android:name=".SaverPreview"
             android:exported="false"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />

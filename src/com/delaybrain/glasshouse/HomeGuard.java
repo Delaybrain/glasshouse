@@ -92,6 +92,11 @@ public class HomeGuard extends AccessibilityService {
         if (left > 60_000) handler.postDelayed(warn, left - 60_000);
     }
 
+    // Standby now, as the off timer does (the HDMI player, after a while without a signal).
+    void standby() {
+        if (android.os.Build.VERSION.SDK_INT >= 28) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+    }
+
     // Minutes left, rounded up, or 0 when no timer runs.
     int offTimerMinutes() {
         if (offAt == 0) return 0;

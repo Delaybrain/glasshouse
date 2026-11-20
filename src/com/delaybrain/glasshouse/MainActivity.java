@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
     private static final String[] ADD_ITEMS = {"Add an app", "Arrange apps"};
     private static final String[] EDIT_ITEMS ={"Move", "Replace", "Remove from home", "Uninstall"};
     private static final String[] EDIT_ITEMS_SYSTEM = {"Move", "Replace", "Remove from home", "App info"};
-    private static final int PER_ROW = 6, MAX_INPUTS = 4;
+    private static final int PER_ROW = 6;
 
     // Settings shortcuts: name, label, icon. Tile keys are QUICK + name.
     private static final String QUICK = "quick:";
@@ -122,7 +122,7 @@ public class MainActivity extends Activity {
     // The Settings tile opens a small menu: the home screen's own settings, then the TV's.
     // Most used first: the TV's own settings and brightness, then the looks, then what's set once.
     private static final String[] SETTINGS_ITEMS = {"TV settings", "Brightness", "Wallpaper", "Tiles", "Status bar",
-            "Screensaver", "Kids lock", "Back up & restore", "Remote buttons"};
+            "Screensaver", "Kids lock", "Back up & restore", "Remote buttons", "HDMI inputs"};
     // How app banners look ("Tiles" in that menu): as the apps made them, all on dark, all on light, the
     // logos straight on the glass, or dark with only the focused app in colour (black & white) or lit (spotlight).
     private static final String[] TILE_TONES = {"Original", "Dark", "Light", "Glass", "Black & white", "Spotlight",
@@ -174,14 +174,11 @@ public class MainActivity extends Activity {
     private InputPreview preview; // in the art's place for HDMI inputs: what's coming in
     private View wallpaperView;   // the wallpaper, behind everything but the HDMI preview
     private View dimView;         // darkens the HDMI preview's picture, so the page on top stays readable
-    // HDMI input -> whether its last preview showed a picture. CEC only knows devices that speak it (a
-    // PC doesn't); this is the next best thing, learnt each time a pill is looked at.
-    private final java.util.Map<String, Boolean> signal = new java.util.HashMap<>();
-    // When each input's picture was last seen. A plain HDMI input says nothing when its device goes
-    // off (this TV calls every port connected), so a picture seen counts only for SIGNAL_FRESH_MS:
-    // after that the dot goes out until the preview sees one again.
-    private final java.util.Map<String, Long> signalAt = new java.util.HashMap<>();
-    private static final long SIGNAL_FRESH_MS = 10 * 60_000;
+    // HDMI input -> whether a picture came in when it was last looked at, and when one was last seen:
+    // shared with the HDMI player (see Inputs.SIGNAL).
+    private final java.util.Map<String, Boolean> signal = Inputs.SIGNAL;
+    private final java.util.Map<String, Long> signalAt = Inputs.SIGNAL_AT;
+    private static final long SIGNAL_FRESH_MS = Inputs.PICTURE_FRESH_MS;
     private final Runnable signalExpiry = this::forgetOldSignals;
     private TextView shelfTitle, shelfSub;
     private String shelfKey;      // what the shelf shows now, so focusing the same tile does nothing
@@ -256,10 +253,11 @@ public class MainActivity extends Activity {
         dimView = new View(this);
         // Darker where the page has something to read (the name on the left, the dock at the bottom),
         // lighter at the top right, so the picture stays bright where nothing covers it.
+        // Light, like the HDMI player's glass: the text on top gets a soft shadow instead (onPicture).
         GradientDrawable dimSide = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[] {0x99000000, 0x33000000, 0x00000000});
+                new int[] {0x66000000, 0x1A000000, 0x00000000});
         GradientDrawable dimDown = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0x40000000, 0x0D000000, 0x8C000000, 0xE6000000});
+                new int[] {0x33000000, 0x00000000, 0x1A000000, 0x4D000000});
         dimView.setBackground(new LayerDrawable(new Drawable[] {dimSide, dimDown}));
         dimView.setAlpha(0f);
         showWallpaper(wallpaper()); // a photo comes in a moment later, over the black background
@@ -313,12 +311,12 @@ public class MainActivity extends Activity {
         shelfSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
         root.addView(shelfSub, at(px(MARGIN), px(SUB_TOP), textW, -2));
 
-        // Under the glass: a dark tint that comes in over a live HDMI picture, so the tiles don't get
-        // lost in a moving image.
+        // Under the glass: the HDMI player's light tint, which comes in over a live HDMI picture, so the
+        // tiles don't get lost in a moving image but the picture still shows through.
         dockShade = new View(this);
         GradientDrawable shade = new GradientDrawable();
         shade.setCornerRadius(px(DOCK_RADIUS));
-        shade.setColor(0x73000000);
+        shade.setColor(Style.LIQUID_VIDEO);
         dockShade.setBackground(shade);
         dockShade.setAlpha(0f);
         root.addView(dockShade, at(0, 0, 0, 0)); // placed by buildTiles, with the dock
@@ -662,6 +660,7 @@ public class MainActivity extends Activity {
         keepHomeGuardOn();
         restartStatus();
         KidLock.unlocked = null; // back home: a locked app asks again next time
+        if (Inputs.takeChanged()) dirty = true; // the HDMI player saw a picture come or go: the dots
         forgetOldSignals(); // the TV may have slept, which holds back the timer for it
         // Rebuild only when apps were installed, removed or updated.
         if (dirty) {
@@ -690,6 +689,10 @@ public class MainActivity extends Activity {
     // between. Null keeps the focus where it was: an HDMI input (its pill is still focused when it was
     // opened from here), a menu of the TV's, or no usage stats.
     private String cameFrom() {
+        // Back from Glasshouse's own HDMI player: on the input it showed last (it can switch inputs).
+        String shown = InputPlayer.lastShown;
+        InputPlayer.lastShown = null;
+        if (shown != null && tile(shown) != null) return shown;
         long since = getSharedPreferences(PREFS, 0).getLong("awayAt", 0), now = System.currentTimeMillis();
         android.app.usage.UsageStatsManager um =
                 (android.app.usage.UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
@@ -821,6 +824,9 @@ public class MainActivity extends Activity {
         wallpaperView.animate().alpha(showing ? 0f : 1f).setDuration(350).start();
         dimView.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
         dockShade.animate().alpha(showing ? 1f : 0f).setDuration(350).start();
+        // A soft shadow under the name over a picture (the dim is light now); none over the wallpaper.
+        for (TextView t : new TextView[] {shelfTitle, shelfSub})
+            t.setShadowLayer(showing ? px(8) : 0, 0, showing ? px(1) : 0, showing ? 0x99000000 : 0);
         if (showing) {
             String info = preview.videoInfo();
             liveText.setText(info == null ? "LIVE" : "LIVE  ·  " + info);
@@ -1752,7 +1758,8 @@ public class MainActivity extends Activity {
                 else if (which == 5) showScreensaver();
                 else if (which == 6) showKidLock();
                 else if (which == 7) showBackup();
-                else showRemoteButtons();
+                else if (which == 8) showRemoteButtons();
+                else showHdmiSettings();
             });
             return;
         } else if (isInput(key)) {
@@ -1797,6 +1804,12 @@ public class MainActivity extends Activity {
     // Google TV's input player, that goes first, because some Google TVs ship com.android.tv as a stub
     // that starts fine but only says "Hello World!" (issue #5).
     private void openInput(String id) {
+        if (getSharedPreferences(PREFS, 0).getBoolean(InputPlayer.PREF, false)) {
+            try {
+                startActivity(new Intent(this, InputPlayer.class).putExtra(InputPlayer.INPUT, id));
+                return;
+            } catch (Exception ignored) {} // then the TV's player, as below
+        }
         Intent view = new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(id));
         List<Intent> tries = new ArrayList<>();
         ResolveInfo def = getPackageManager().resolveActivity(view, PackageManager.MATCH_DEFAULT_ONLY);
@@ -2312,6 +2325,16 @@ public class MainActivity extends Activity {
         } catch (Exception ex) {
             toast("No backup found");
         }
+    }
+
+    // ---- HDMI inputs ----
+
+    // Whether OK on an HDMI pill opens Glasshouse's own HDMI player (InputPlayer) or the TV's. Off until
+    // turned on here, so an update doesn't change how a TV's inputs open.
+    private void showHdmiSettings() {
+        final boolean[] on = {getSharedPreferences(PREFS, 0).getBoolean(InputPlayer.PREF, false)};
+        panel(Strings.t("HDMI inputs"), Arrays.asList(Strings.t("Open HDMI with Glasshouse")), null, 0, -1, null, on,
+                which -> getSharedPreferences(PREFS, 0).edit().putBoolean(InputPlayer.PREF, on[0]).apply());
     }
 
     // ---- Remote buttons ----
@@ -3376,49 +3399,23 @@ public class MainActivity extends Activity {
         return key.indexOf('/') > 0;
     }
 
-    // The TV's own HDMI inputs (not devices behind them), in order, skipping hidden ones.
     // HDMI-CEC devices that are on, by the HDMI input they're plugged into, with their names. Android adds
     // an input of their own for them (parent: the HDMI port). Needs HDMI-CEC on in the TV's settings;
     // without it, or for a device that's fully off, the port just has no dot. (The plain HDMI inputs
     // can't tell: on MediaTek they say "connected" whether anything is plugged in or not.)
     private void refreshCecDevices() {
         cecDevices.clear();
-        TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
-        if (tim == null) return;
-        for (TvInputInfo in : tim.getTvInputList()) {
-            if (in.getParentId() == null || in.getType() != TvInputInfo.TYPE_HDMI) continue;
-            if (tim.getInputState(in.getId()) == TvInputManager.INPUT_STATE_DISCONNECTED) continue;
-            CharSequence name = in.loadLabel(this);
-            // CEC names have no spaces when they don't fit ("NintendoSwitch"): put them back.
-            cecDevices.put(in.getParentId(), name == null ? "" : name.toString().replaceAll("(?<=[a-z])(?=[A-Z])", " "));
-        }
+        cecDevices.putAll(Inputs.cecDevices(this));
     }
 
+    // The TV's own HDMI inputs (not devices behind them), in order, skipping hidden ones.
     private List<TvInputInfo> hdmiInputs() {
-        List<TvInputInfo> out = new ArrayList<>();
-        TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
-        if (tim == null) return out;
-        for (TvInputInfo in : tim.getTvInputList()) {
-            if (in.getType() == TvInputInfo.TYPE_HDMI && in.getParentId() == null && !in.isHidden(this)) out.add(in);
-        }
-        Collections.sort(out, (a, b) -> a.getId().compareTo(b.getId()));
-        return out.size() > MAX_INPUTS ? out.subList(0, MAX_INPUTS) : out;
+        return Inputs.hdmi(this);
     }
 
     // The name set in Settings > Inputs (like "Bedroom"), else the TV's own name (like "HDMI 1").
     private String inputLabel(TvInputInfo in) {
-        CharSequence custom = in.loadCustomLabel(this);
-        if (custom != null && custom.length() > 0) return withoutDeviceType(custom.toString());
-        CharSequence label = in.loadLabel(this);
-        return label != null && label.length() > 0 ? withoutDeviceType(label.toString()) : "HDMI";
-    }
-
-    // Philips stores a name as "name&DEVICE_TYPE" (like "Computer&COMPUTER"), so show the name only.
-    // Only on Philips TVs: elsewhere a name like "AUDIO&VIDEO" is the name itself.
-    private static String withoutDeviceType(String label) {
-        if (!"Philips".equalsIgnoreCase(android.os.Build.MANUFACTURER)) return label;
-        int amp = label.lastIndexOf('&');
-        return amp > 0 && label.substring(amp + 1).matches("[A-Z][A-Z0-9_]{2,}") ? label.substring(0, amp).trim() : label;
+        return Inputs.label(this, in);
     }
 
     private boolean userInstalled(String pkg) {
@@ -3436,6 +3433,12 @@ public class MainActivity extends Activity {
         if (regular != null) return;
         regular = fromFile("/system/fonts/MILanPro_Normal.ttf", Typeface.create("sans-serif", Typeface.NORMAL));
         semibold = fromFile("/system/fonts/MILanPro_SemiBold.ttf", Typeface.create("sans-serif-medium", Typeface.NORMAL));
+    }
+
+    // The home screen's fonts, for its other screens (the HDMI player).
+    static Typeface font(boolean bold) {
+        loadFonts();
+        return bold ? semibold : regular;
     }
 
     private static Typeface fromFile(String path, Typeface fallback) {
