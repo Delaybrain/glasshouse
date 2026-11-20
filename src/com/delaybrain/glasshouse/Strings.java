@@ -35,6 +35,7 @@ final class Strings {
         "Apps button", "Gear", "Notifications button", "Guide button", "Person button", "Menu button", "Red button", "Green button", "Yellow button", "Blue button", "Input button", "TV button", "Info button", "Subtitles button", "Play/Pause",
         "Home button",
         "No signal on %s", "Turn the device on, or check the cable.", "Without a signal the TV turns off after %d minutes.", "HDMI inputs", "Open HDMI with Glasshouse",
+        "PC", "Laptop", "Game console", "TV box", "Blu-ray player", "Receiver", "Camera", "Own name", "TV's own name", "Name for %s",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -68,6 +69,7 @@ final class Strings {
             "زر التطبيقات", "زر الترس", "زر الإشعارات", "زر الدليل", "زر الشخص", "زر القائمة", "الزر الأحمر", "الزر الأخضر", "الزر الأصفر", "الزر الأزرق", "زر الإدخال", "زر التلفزيون", "زر المعلومات", "زر الترجمة", "تشغيل/إيقاف مؤقت",
             "زر الرئيسية",
             "لا توجد إشارة على %s", "شغّل الجهاز أو تحقق من الكابل.", "بدون إشارة يتوقف التلفزيون بعد %d دقائق.", "مداخل HDMI", "فتح HDMI باستخدام Glasshouse",
+            "حاسوب", "حاسوب محمول", "جهاز ألعاب", "جهاز تلفزيون", "مشغل Blu-ray", "مستقبل صوت", "كاميرا", "اسم خاص", "اسم التلفزيون الأصلي", "اسم لـ %s",
         });
         LANGS.put("de", new String[] {
             "Einstellungen", "App hinzufügen", "Netzwerk", "Offline", "Ton", "Bild",
@@ -97,6 +99,7 @@ final class Strings {
             "Apps-Taste", "Zahnrad", "Benachrichtigungstaste", "Guide-Taste", "Personen-Taste", "Menütaste", "Rote Taste", "Grüne Taste", "Gelbe Taste", "Blaue Taste", "Eingangstaste", "TV-Taste", "Info-Taste", "Untertiteltaste", "Wiedergabe/Pause",
             "Home-Taste",
             "Kein Signal an %s", "Gerät einschalten oder Kabel prüfen.", "Ohne Signal geht der TV nach %d Minuten aus.", "HDMI-Eingänge", "HDMI mit Glasshouse öffnen",
+            "PC", "Laptop", "Spielkonsole", "TV-Box", "Blu-ray-Player", "Receiver", "Kamera", "Eigener Name", "Name vom TV", "Name für %s",
         });
         LANGS.put("es", new String[] {
             "Ajustes", "Añadir app", "Red", "Sin conexión", "Sonido", "Imagen",
@@ -128,6 +131,7 @@ final class Strings {
             "Botón de apps", "Engranaje", "Botón de notificaciones", "Botón de guía", "Botón de persona", "Botón de menú", "Botón rojo", "Botón verde", "Botón amarillo", "Botón azul", "Botón de entrada", "Botón TV", "Botón de información", "Botón de subtítulos", "Reproducir/Pausa",
             "Botón de inicio",
             "Sin señal en %s", "Enciende el dispositivo o revisa el cable.", "Sin señal, la TV se apaga tras %d minutos.", "Entradas HDMI", "Abrir HDMI con Glasshouse",
+            "PC", "Portátil", "Consola", "Dispositivo TV", "Reproductor Blu-ray", "Receptor", "Cámara", "Nombre propio", "Nombre de la TV", "Nombre para %s",
         });
         LANGS.put("fr", new String[] {
             "Paramètres", "Ajouter une app", "Réseau", "Hors ligne", "Son", "Image",
@@ -161,6 +165,7 @@ final class Strings {
             "Bouton Applis", "Roue dentée", "Bouton Notifications", "Bouton Guide", "Bouton Personne", "Bouton Menu", "Bouton rouge", "Bouton vert", "Bouton jaune", "Bouton bleu", "Bouton Source", "Bouton TV", "Bouton Info", "Bouton Sous-titres", "Lecture/Pause",
             "Bouton Accueil",
             "Aucun signal sur %s", "Allumez l'appareil ou vérifiez le câble.", "Sans signal, la TV s'éteint après %d minutes.", "Entrées HDMI", "Ouvrir le HDMI avec Glasshouse",
+            "PC", "Ordinateur portable", "Console de jeux", "Box TV", "Lecteur Blu-ray", "Ampli", "Caméra", "Nom personnalisé", "Nom de la TV", "Nom pour %s",
         });
         LANGS.put("hi", new String[] {
             "सेटिंग्स", "ऐप जोड़ें", "नेटवर्क", "ऑफ़लाइन", "ध्वनि", "चित्र",
@@ -190,6 +195,7 @@ final class Strings {
             "ऐप्स बटन", "गियर", "सूचना बटन", "गाइड बटन", "व्यक्ति बटन", "मेनू बटन", "लाल बटन", "हरा बटन", "पीला बटन", "नीला बटन", "इनपुट बटन", "टीवी बटन", "जानकारी बटन", "सबटाइटल बटन", "चलाएँ/रोकें",
             "होम बटन",
             "%s पर कोई सिग्नल नहीं", "डिवाइस चालू करें या केबल जाँचें।", "सिग्नल के बिना टीवी %d मिनट बाद बंद हो जाता है।", "HDMI इनपुट", "HDMI को Glasshouse से खोलें",
+            "पीसी", "लैपटॉप", "गेम कंसोल", "टीवी बॉक्स", "ब्लू-रे प्लेयर", "रिसीवर", "कैमरा", "अपना नाम", "टीवी का नाम", "%s के लिए नाम",
         });
         String[] id = {
             "Setelan", "Tambah aplikasi", "Jaringan", "Offline", "Suara", "Gambar",
@@ -221,6 +227,7 @@ final class Strings {
             "Tombol aplikasi", "Roda gigi", "Tombol notifikasi", "Tombol panduan", "Tombol orang", "Tombol menu", "Tombol merah", "Tombol hijau", "Tombol kuning", "Tombol biru", "Tombol input", "Tombol TV", "Tombol info", "Tombol subtitel", "Putar/Jeda",
             "Tombol beranda",
             "Tidak ada sinyal di %s", "Nyalakan perangkat atau periksa kabelnya.", "Tanpa sinyal, TV mati setelah %d menit.", "Input HDMI", "Buka HDMI dengan Glasshouse",
+            "PC", "Laptop", "Konsol game", "TV box", "Pemutar Blu-ray", "Receiver", "Kamera", "Nama sendiri", "Nama dari TV", "Nama untuk %s",
         };
         LANGS.put("id", id);
         LANGS.put("in", id); // Java's old code for Indonesian, which Android still reports
@@ -255,6 +262,7 @@ final class Strings {
             "Tasto app", "Ingranaggio", "Tasto notifiche", "Tasto guida", "Tasto persona", "Tasto menu", "Tasto rosso", "Tasto verde", "Tasto giallo", "Tasto blu", "Tasto sorgente", "Tasto TV", "Tasto info", "Tasto sottotitoli", "Riproduci/Pausa",
             "Tasto Home",
             "Nessun segnale su %s", "Accendi il dispositivo o controlla il cavo.", "Senza segnale la TV si spegne dopo %d minuti.", "Ingressi HDMI", "Apri HDMI con Glasshouse",
+            "PC", "Portatile", "Console", "TV box", "Lettore Blu-ray", "Sintoamplificatore", "Videocamera", "Nome personalizzato", "Nome della TV", "Nome per %s",
         });
         LANGS.put("ja", new String[] {
             "設定", "アプリを追加", "ネットワーク", "オフライン", "サウンド", "画像",
@@ -281,6 +289,7 @@ final class Strings {
             "アプリボタン", "歯車", "通知ボタン", "番組表ボタン", "人物ボタン", "メニューボタン", "赤ボタン", "緑ボタン", "黄ボタン", "青ボタン", "入力切替ボタン", "テレビボタン", "情報ボタン", "字幕ボタン", "再生/一時停止",
             "ホームボタン",
             "%s に信号がありません", "機器の電源を入れるか、ケーブルを確認してください。", "信号がないと %d 分後にテレビの電源が切れます。", "HDMI入力", "HDMIをGlasshouseで開く",
+            "PC", "ノートPC", "ゲーム機", "TVボックス", "ブルーレイプレーヤー", "AVアンプ", "カメラ", "名前を入力", "テレビの名前", "%s の名前",
         });
         LANGS.put("ko", new String[] {
             "설정", "앱 추가", "네트워크", "오프라인", "소리", "화면",
@@ -304,6 +313,7 @@ final class Strings {
             "앱 버튼", "톱니바퀴", "알림 버튼", "가이드 버튼", "사람 버튼", "메뉴 버튼", "빨간 버튼", "초록 버튼", "노란 버튼", "파란 버튼", "입력 버튼", "TV 버튼", "정보 버튼", "자막 버튼", "재생/일시정지",
             "홈 버튼",
             "%s에 신호 없음", "기기를 켜거나 케이블을 확인하세요.", "신호가 없으면 %d분 후 TV가 꺼집니다.", "HDMI 입력", "Glasshouse로 HDMI 열기",
+            "PC", "노트북", "게임기", "TV 박스", "블루레이 플레이어", "리시버", "카메라", "직접 입력", "TV 기본 이름", "%s 이름",
         });
         LANGS.put("nl", new String[] {
             "Instellingen", "App toevoegen", "Netwerk", "Offline", "Geluid", "Beeld",
@@ -335,6 +345,7 @@ final class Strings {
             "Apps-knop", "Tandwiel", "Meldingenknop", "Gidsknop", "Persoonknop", "Menuknop", "Rode knop", "Groene knop", "Gele knop", "Blauwe knop", "Bronknop", "TV-knop", "Infoknop", "Ondertitelknop", "Afspelen/pauzeren",
             "Homeknop",
             "Geen signaal op %s", "Zet het apparaat aan of controleer de kabel.", "Zonder signaal gaat de tv na %d minuten uit.", "HDMI-ingangen", "HDMI openen met Glasshouse",
+            "Pc", "Laptop", "Spelcomputer", "Tv-box", "Blu-ray-speler", "Receiver", "Camera", "Eigen naam", "Naam van de tv", "Naam voor %s",
         });
         LANGS.put("pl", new String[] {
             "Ustawienia", "Dodaj aplikację", "Sieć", "Offline", "Dźwięk", "Obraz",
@@ -366,6 +377,7 @@ final class Strings {
             "Przycisk aplikacji", "Koło zębate", "Przycisk powiadomień", "Przycisk przewodnika", "Przycisk osoby", "Przycisk menu", "Czerwony przycisk", "Zielony przycisk", "Żółty przycisk", "Niebieski przycisk", "Przycisk źródła", "Przycisk TV", "Przycisk info", "Przycisk napisów", "Odtwórz/Pauza",
             "Przycisk ekranu głównego",
             "Brak sygnału na %s", "Włącz urządzenie lub sprawdź kabel.", "Bez sygnału telewizor wyłączy się po %d minutach.", "Wejścia HDMI", "Otwieraj HDMI w Glasshouse",
+            "PC", "Laptop", "Konsola", "Przystawka TV", "Odtwarzacz Blu-ray", "Amplituner", "Kamera", "Własna nazwa", "Nazwa z telewizora", "Nazwa dla %s",
         });
         LANGS.put("pt", new String[] { // Brazilian Portuguese
             "Configurações", "Adicionar app", "Rede", "Sem conexão", "Som", "Imagem",
@@ -397,6 +409,7 @@ final class Strings {
             "Botão de apps", "Engrenagem", "Botão de notificações", "Botão de guia", "Botão de pessoa", "Botão de menu", "Botão vermelho", "Botão verde", "Botão amarelo", "Botão azul", "Botão de entrada", "Botão TV", "Botão de informações", "Botão de legendas", "Reproduzir/Pausar",
             "Botão Início",
             "Sem sinal em %s", "Ligue o aparelho ou verifique o cabo.", "Sem sinal, a TV desliga após %d minutos.", "Entradas HDMI", "Abrir HDMI com o Glasshouse",
+            "PC", "Notebook", "Console de jogos", "TV box", "Player Blu-ray", "Receiver", "Câmera", "Nome próprio", "Nome da TV", "Nome para %s",
         });
         LANGS.put("ru", new String[] {
             "Настройки", "Добавить", "Сеть", "Нет сети", "Звук", "Изображение",
@@ -428,6 +441,7 @@ final class Strings {
             "Кнопка приложений", "Шестерёнка", "Кнопка уведомлений", "Кнопка гида", "Кнопка профиля", "Кнопка меню", "Красная кнопка", "Зелёная кнопка", "Жёлтая кнопка", "Синяя кнопка", "Кнопка источника", "Кнопка ТВ", "Кнопка инфо", "Кнопка субтитров", "Воспроизведение/пауза",
             "Кнопка «Домой»",
             "Нет сигнала на %s", "Включите устройство или проверьте кабель.", "Без сигнала телевизор выключится через %d мин.", "Входы HDMI", "Открывать HDMI в Glasshouse",
+            "ПК", "Ноутбук", "Игровая приставка", "ТВ-приставка", "Blu-ray-плеер", "Ресивер", "Камера", "Своё название", "Название от ТВ", "Название для %s",
         });
         LANGS.put("tr", new String[] {
             "Ayarlar", "Uygulama ekle", "Ağ", "Çevrimdışı", "Ses", "Görüntü",
@@ -458,6 +472,7 @@ final class Strings {
             "Uygulamalar tuşu", "Dişli", "Bildirim tuşu", "Rehber tuşu", "Kişi tuşu", "Menü tuşu", "Kırmızı tuş", "Yeşil tuş", "Sarı tuş", "Mavi tuş", "Kaynak tuşu", "TV tuşu", "Bilgi tuşu", "Altyazı tuşu", "Oynat/Duraklat",
             "Ana ekran tuşu",
             "%s girişinde sinyal yok", "Cihazı açın veya kabloyu kontrol edin.", "Sinyal yoksa TV %d dakika sonra kapanır.", "HDMI girişleri", "HDMI'yi Glasshouse ile aç",
+            "PC", "Dizüstü bilgisayar", "Oyun konsolu", "TV kutusu", "Blu-ray oynatıcı", "Alıcı", "Kamera", "Özel ad", "TV'nin adı", "%s için ad",
         });
         LANGS.put("uk", new String[] {
             "Налаштування", "Додати додаток", "Мережа", "Офлайн", "Звук", "Зображення",
@@ -488,6 +503,7 @@ final class Strings {
             "Кнопка застосунків", "Шестірня", "Кнопка сповіщень", "Кнопка гіда", "Кнопка профілю", "Кнопка меню", "Червона кнопка", "Зелена кнопка", "Жовта кнопка", "Синя кнопка", "Кнопка джерела", "Кнопка ТБ", "Кнопка інфо", "Кнопка субтитрів", "Відтворення/пауза",
             "Кнопка «Додому»",
             "Немає сигналу на %s", "Увімкніть пристрій або перевірте кабель.", "Без сигналу телевізор вимкнеться через %d хв.", "Входи HDMI", "Відкривати HDMI у Glasshouse",
+            "ПК", "Ноутбук", "Ігрова приставка", "ТВ-приставка", "Blu-ray-плеєр", "Ресивер", "Камера", "Власна назва", "Назва від ТБ", "Назва для %s",
         });
         LANGS.put("zh", new String[] { // Simplified Chinese
             "设置", "添加应用", "网络", "未联网", "声音", "图像",
@@ -511,6 +527,7 @@ final class Strings {
             "应用按钮", "齿轮", "通知按钮", "节目指南按钮", "人物按钮", "菜单按钮", "红色按钮", "绿色按钮", "黄色按钮", "蓝色按钮", "信号源按钮", "电视按钮", "信息按钮", "字幕按钮", "播放/暂停",
             "主页按钮",
             "%s 无信号", "请打开设备或检查线缆。", "无信号时电视将在 %d 分钟后关闭。", "HDMI 输入", "用 Glasshouse 打开 HDMI",
+            "电脑", "笔记本电脑", "游戏机", "电视盒子", "蓝光播放器", "功放", "摄像机", "自定义名称", "电视原名", "%s 的名称",
         });
         String[] hant = { // Traditional Chinese
             "設定", "新增應用程式", "網路", "離線", "音效", "影像",
@@ -534,6 +551,7 @@ final class Strings {
             "應用程式按鈕", "齒輪", "通知按鈕", "節目指南按鈕", "人物按鈕", "選單按鈕", "紅色按鈕", "綠色按鈕", "黃色按鈕", "藍色按鈕", "訊號源按鈕", "電視按鈕", "資訊按鈕", "字幕按鈕", "播放/暫停",
             "主畫面按鈕",
             "%s 無訊號", "請開啟裝置或檢查線材。", "無訊號時電視會在 %d 分鐘後關閉。", "HDMI 輸入", "用 Glasshouse 開啟 HDMI",
+            "電腦", "筆記型電腦", "遊戲機", "電視盒", "藍光播放器", "擴大機", "攝影機", "自訂名稱", "電視原名", "%s 的名稱",
         };
         LANGS.put("zh-TW", hant);
         LANGS.put("zh-HK", hant);

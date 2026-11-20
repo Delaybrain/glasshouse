@@ -1425,7 +1425,7 @@ public class MainActivity extends Activity {
         if (store) x += addPill(PLAY_STORE, "Play Store", LineIcon.PLAY, x, pillTop, false) + px(PILL_GAP);
         refreshCecDevices();
         for (TvInputInfo in : hdmiInputs())
-            x += addPill(in.getId(), inputLabel(in), LineIcon.HDMI, x, pillTop,
+            x += addPill(in.getId(), inputLabel(in), Inputs.icon(this, in.getId()), x, pillTop,
                     cecDevices.containsKey(in.getId()) || Boolean.TRUE.equals(signal.get(in.getId()))) + px(PILL_GAP);
         x += addPill(SETTINGS, Strings.t("Settings"), LineIcon.SETTINGS, x, pillTop, false) + px(PILL_GAP);
         addPill(ADD, Strings.t("Add app"), LineIcon.PLUS, x, pillTop, false);
@@ -2329,12 +2329,114 @@ public class MainActivity extends Activity {
 
     // ---- HDMI inputs ----
 
-    // Whether OK on an HDMI pill opens Glasshouse's own HDMI player (InputPlayer) or the TV's. Off until
-    // turned on here, so an update doesn't change how a TV's inputs open.
+    // Whether OK on an HDMI pill opens Glasshouse's own HDMI player (InputPlayer) or the TV's (a switch,
+    // off until turned on here, so an update doesn't change how a TV's inputs open), then one row per
+    // input to give it a name and an icon.
     private void showHdmiSettings() {
-        final boolean[] on = {getSharedPreferences(PREFS, 0).getBoolean(InputPlayer.PREF, false)};
-        panel(Strings.t("HDMI inputs"), Arrays.asList(Strings.t("Open HDMI with Glasshouse")), null, 0, -1, null, on,
-                which -> getSharedPreferences(PREFS, 0).edit().putBoolean(InputPlayer.PREF, on[0]).apply());
+        final Runnable back = stepBack;
+        final List<TvInputInfo> inputs = hdmiInputs();
+        List<String> rows = new ArrayList<>();
+        rows.add(Strings.t("Open HDMI with Glasshouse"));
+        for (TvInputInfo in : inputs) {
+            String mine = Inputs.customName(this, in.getId());
+            rows.add(Inputs.tvLabel(this, in) + (mine == null ? "" : "  ·  " + mine));
+        }
+        final boolean[] on = new boolean[rows.size()];
+        on[0] = getSharedPreferences(PREFS, 0).getBoolean(InputPlayer.PREF, false);
+        final Dialog[] panel = new Dialog[1];
+        panel[0] = panel(Strings.t("HDMI inputs"), rows, pos -> new LineIcon(pos == 0 ? LineIcon.PLAY
+                : Inputs.icon(this, inputs.get(pos - 1).getId())), px(40), -1, null, on, which -> {
+            if (which == 0) {
+                getSharedPreferences(PREFS, 0).edit().putBoolean(InputPlayer.PREF, on[0]).apply();
+                return;
+            }
+            on[which] = false; // a row to open, not a switch
+            nameInput(inputs.get(which - 1), () -> {
+                panel[0].dismiss();
+                stepBack = back;
+                showHdmiSettings();
+            });
+        });
+    }
+
+    // What's on an input: one of the kinds (a name and an icon at once), a name of one's own (typed with
+    // the TV's keyboard), or the TV's name again. done runs after a change.
+    private void nameInput(final TvInputInfo in, final Runnable done) {
+        final String id = in.getId();
+        List<String> rows = new ArrayList<>(Arrays.asList(translated(Inputs.KINDS)));
+        rows.add(Strings.t("Own name"));
+        rows.add(String.format("%s (%s)", Strings.t("TV's own name"), Inputs.tvLabel(this, in)));
+        final Dialog[] kinds = new Dialog[1];
+        kinds[0] = panel(Inputs.tvLabel(this, in), rows, pos -> new LineIcon(pos < Inputs.KINDS.length ? Inputs.KIND_ICONS[pos]
+                : pos == Inputs.KINDS.length ? LineIcon.PLUS : LineIcon.HDMI), px(40), -1, null, which -> {
+            if (which < Inputs.KINDS.length) Inputs.setName(this, id, Inputs.KINDS[which], null);
+            else if (which > Inputs.KINDS.length) Inputs.setName(this, id, null, null);
+            else {
+                panelStays = true;
+                String now = Inputs.customName(this, id);
+                askText(String.format(Strings.t("Name for %s"), Inputs.tvLabel(this, in)), now == null ? "" : now, text -> {
+                    Inputs.setName(this, id, null, text);
+                    kinds[0].dismiss();
+                    namesChanged(done);
+                });
+                return;
+            }
+            namesChanged(done);
+        });
+    }
+
+    private void namesChanged(Runnable done) {
+        dirty = true; // the pills get their new names and icons when the page is in front again
+        refreshApps();
+        done.run();
+    }
+
+    interface Text { void got(String text); }
+
+    // A line of text typed with the TV's keyboard, on a glass card. Done on the keyboard (or OK) hands
+    // it to got; Back drops it.
+    private void askText(String title, String initial, final Text got) {
+        final Dialog d = new Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        final Runnable back = takeBack();
+        d.setOnCancelListener(x -> { if (back != null) root.post(back); });
+        int pad = px(DOCK_PAD), cw = px(860), ch = px(260);
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        int cx = (sw - cw) / 2, cy = px(160); // high up, so the keyboard below doesn't cover it
+        FrameLayout card = new FrameLayout(this);
+        card.setBackground(glass(new android.graphics.Rect(cx, cy, cx + cw, cy + ch)));
+        TextView head = text(px(Style.TITLE), Style.INK, semibold);
+        head.setText(title);
+        card.addView(head, at(pad, pad, cw - 2 * pad, -2));
+        final android.widget.EditText field = new android.widget.EditText(this);
+        field.setText(initial);
+        field.setSelection(initial.length());
+        field.setSingleLine(true);
+        field.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(Style.BODY));
+        field.setTextColor(Style.FOCUS_INK);
+        field.setTypeface(regular);
+        field.setPadding(px(24), 0, px(24), 0);
+        GradientDrawable box = new GradientDrawable();
+        box.setCornerRadius(px(Style.RADIUS_TILE));
+        box.setColor(Style.FOCUS);
+        field.setBackground(box);
+        field.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        field.setOnEditorActionListener((v, action, ev) -> {
+            d.dismiss();
+            got.got(field.getText().toString());
+            return true;
+        });
+        card.addView(field, at(pad, pad + px(72), cw - 2 * pad, px(84)));
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(card, at(cx, cy, cw, ch));
+        d.setContentView(frame);
+        Window win = d.getWindow();
+        win.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        win.setLayout(-1, -1);
+        win.setDimAmount(0.5f);
+        win.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        d.show();
+        shown(d);
+        field.requestFocus();
     }
 
     // ---- Remote buttons ----

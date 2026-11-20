@@ -60,8 +60,65 @@ final class Inputs {
         return out.size() > MAX ? new ArrayList<>(out.subList(0, MAX)) : out;
     }
 
-    // The port's name: the one set in the TV's settings, else the TV's own ("HDMI 2").
+    // What can be on an input, picked under Settings > HDMI inputs: a name (in the TV's language) and
+    // its icon. Saved by its English name, so a choice stays when the TV's language changes.
+    static final String[] KINDS = {"PC", "Laptop", "Game console", "TV box", "Blu-ray player", "Receiver", "Camera"};
+    static final int[][] KIND_ICONS = {LineIcon.PICTURE, LineIcon.LAPTOP, LineIcon.GAMEPAD, LineIcon.BOX,
+            LineIcon.DISC, LineIcon.SPEAKER, LineIcon.CAMERA};
+    private static final String NAMES = "inputNames"; // {"input id": {"name": ..., "kind": ...}}
+
+    // The name given on the TV ("Gaming PC", or a kind like "PC"), or null.
+    static String customName(Context c, String id) {
+        org.json.JSONObject o = names(c).optJSONObject(id);
+        if (o == null) return null;
+        String name = o.optString("name", "");
+        if (!name.isEmpty()) return name;
+        String kind = o.optString("kind", "");
+        return kind.isEmpty() ? null : Strings.t(kind);
+    }
+
+    // The input's icon: its kind's, else the HDMI plug.
+    static int[] icon(Context c, String id) {
+        org.json.JSONObject o = names(c).optJSONObject(id);
+        String kind = o == null ? "" : o.optString("kind", "");
+        for (int i = 0; i < KINDS.length; i++) if (KINDS[i].equals(kind)) return KIND_ICONS[i];
+        return LineIcon.HDMI;
+    }
+
+    // A kind (one of KINDS), a name of one's own (kind null), or nothing (both null: the TV's name again).
+    static void setName(Context c, String id, String kind, String name) {
+        org.json.JSONObject all = names(c);
+        try {
+            if (kind == null && (name == null || name.trim().isEmpty())) all.remove(id);
+            else {
+                org.json.JSONObject o = all.optJSONObject(id);
+                if (o == null) o = new org.json.JSONObject();
+                if (kind != null) { o.put("kind", kind); o.remove("name"); }
+                if (name != null) o.put("name", name.trim());
+                all.put(id, o);
+            }
+        } catch (org.json.JSONException ignored) {}
+        c.getSharedPreferences("config", 0).edit().putString(NAMES, all.toString()).apply();
+    }
+
+    private static org.json.JSONObject names(Context c) {
+        try {
+            return new org.json.JSONObject(c.getSharedPreferences("config", 0).getString(NAMES, "{}"));
+        } catch (Exception e) {
+            return new org.json.JSONObject();
+        }
+    }
+
+    // The port's name: the one given in Glasshouse, else the one set in the TV's settings, else the TV's
+    // own ("HDMI 2").
     static String label(Context c, TvInputInfo in) {
+        String mine = customName(c, in.getId());
+        if (mine != null) return mine;
+        return tvLabel(c, in);
+    }
+
+    // The TV's name for the port, never Glasshouse's ("HDMI 2", or what's set in the TV's settings).
+    static String tvLabel(Context c, TvInputInfo in) {
         CharSequence custom = in.loadCustomLabel(c);
         if (custom != null && custom.length() > 0) return withoutDeviceType(custom.toString());
         CharSequence label = in.loadLabel(c);

@@ -38,6 +38,15 @@ final class LineIcon extends Drawable {
             1, 80, 165, 1, 40, 165, 2, 0, 85, 60, 1, 85, 100, 0, 120, 60, 1, 120, 100, 0, 155, 60, 1, 155, 100};
     static final int[] PICTURE ={0, 30, 50, 1, 210, 50, 1, 210, 165, 1, 30, 165, 2, 0, 120, 165, 1, 120, 200,
             0, 80, 200, 1, 160, 200};
+    // What's on an HDMI input (Settings > HDMI inputs): a PC is PICTURE, a monitor on its stand.
+    static final int[] LAPTOP = {0, 55, 55, 1, 185, 55, 1, 185, 150, 1, 55, 150, 2, 0, 25, 182, 1, 215, 182};
+    static final int[] GAMEPAD = {4, 75, 130, 48, 90, 180, 4, 165, 130, 48, -90, 180, 0, 75, 82, 1, 165, 82,
+            0, 75, 178, 1, 165, 178, 0, 55, 130, 1, 95, 130, 0, 75, 110, 1, 75, 150, 3, 160, 115, 7, 3, 182, 140, 7};
+    static final int[] BOX = {0, 35, 95, 1, 205, 95, 1, 205, 165, 1, 35, 165, 2, 3, 175, 130, 6};
+    static final int[] DISC = {3, 120, 120, 85, 3, 120, 120, 22};
+    static final int[] SPEAKER = {0, 70, 35, 1, 170, 35, 1, 170, 205, 1, 70, 205, 2, 3, 120, 142, 35, 3, 120, 78, 12};
+    static final int[] CAMERA = {0, 30, 80, 1, 80, 80, 1, 95, 55, 1, 145, 55, 1, 160, 80, 1, 210, 80, 1, 210, 190,
+            1, 30, 190, 2, 3, 120, 133, 35};
 
     private final int[] ops;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
